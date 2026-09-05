@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目介绍 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav"><a href="index.html">← 返回目录</a></div>
+    <div class="container">
+        <h1>🦆 duck_分析 — Microduck 项目学习笔记本</h1>
+        <div class="meta">README · 项目介绍</div>
+
+        <blockquote>
+            这是一个<strong>边做边学</strong>的目录：你每学到一个点就追加一条笔记（<code>notes/</code>），每跑通一个实验就贴一张图或一段日志（<code>figures/</code>）。<strong>不需要写得很整齐，先记下来比写得好更重要。</strong>
+        </blockquote>
+
+        <p>Microduck 是 Pollen Robotics / Hugging Face 推出的一台 25 cm 高、约 800 g 的开源双足机器人，全身 14 个 Dynamixel XL330 智能伺服。本仓库 <code>microduck_rl/</code> 是它的官方 RL 训练栈（mjlab + MuJoCo Warp + PPO），真机运行时在 <code>pollen-robotics/microduck</code>。</p>
+
+        <p>这个目录的目的：<strong>不重复写一遍训练命令</strong>（那些都在 <code>AGENTS.md</code> 和 <code>README.md</code> 里了），而是把它当作<strong>理解鸭子</strong>的入门引导：</p>
+
+        <ul>
+            <li>把鸭子<strong>为什么这么设计</strong>讲清楚（硬件选型、传感器布局、为什么是 BAM 物理）</li>
+            <li>把 RL 的关键概念<strong>映射到鸭子的具体工程实践</strong>上</li>
+            <li>把"动作"、"姿态"、"对话"、"反应"这些人和机器人交互的概念落到代码 / manifest</li>
+            <li>列出 PCB、伺服控制、IMU / 力矩、强化学习这些<strong>可以继续深入的分支</strong></li>
+        </ul>
+
+        <h2>目录结构</h2>
+        <pre><code>duck_分析/
+├── README.md                 ← 你正在读的
+├── 01_训练入门.md             ← 怎么跑起来一个会走路的鸭子
+├── 02_多动作联合训练.md        ← 怎么让鸭子同时会坐、站、踢、走
+├── 03_让鸭子更像活物.md        ← 闲置动作、个性、行为混合、随机性
+├── 04_人机交互.md             ← 怎么"指挥"一只鸭子：游戏手柄 / NFC / 语音 / LED
+├── 05_硬件实现.md             ← 主板、伺服、电池、传感器、PCB
+├── 06_学习路线.md             ← 想深入 PCB / 嵌入式 / RL / 力学时的书单与项目
+├── 07_打通软硬件与RL的任督二脉.md ← 怎么把"硬件 + 软件 + RL"三层合在一起
+├── 08_如何阅读这个项目.md       ← 手把手的 4 周阅读计划（带 file:line）
+├── 09_机器人项目横向对比.md     ← Microduck vs Unitree / Solo / ALOHA / SO-ARM100 等
+├── 10_从零造一台自己的机器人.md  ← 5 阶段造机指南（BOM + 代码 + 陷阱）
+├── notes/                    ← 你的随手笔记（建议按日期命名 notes/2026-09-04-xxx.md）
+└── figures/                  ← 截图、wandb 图、错误信息
+</code></pre>
+
+        <h2>阅读顺序建议</h2>
+        <table>
+            <tr><th>你的目标</th><th>先读</th></tr>
+            <tr><td>我就想立刻在 MuJoCo 里看到鸭子</td><td><code>01_训练入门.md</code> 第 1-2 节</td></tr>
+            <tr><td>我想自己训一个会走 / 站 / 踢的策略</td><td><code>01_训练入门.md</code> 第 3 节</td></tr>
+            <tr><td>我想知道 7 个预训练动作是怎么编排的</td><td><code>02_多动作联合训练.md</code></td></tr>
+            <tr><td>我想让鸭子有点个性（不是 7 段固定脚本）</td><td><code>03_让鸭子更像活物.md</code></td></tr>
+            <tr><td>我想拿游戏手柄 / 语音 / NFC 控制它</td><td><code>04_人机交互.md</code></td></tr>
+            <tr><td>我想搞懂硬件、做自己的微缩机器人</td><td><code>05_硬件实现.md</code> + <code>06_学习路线.md</code></td></tr>
+            <tr><td>我想打通软硬件+RL 三层</td><td><code>07_打通软硬件与RL的任督二脉.md</code></td></tr>
+            <tr><td>我想系统读完 microduck_rl 源码</td><td><code>08_如何阅读这个项目.md</code></td></tr>
+            <tr><td>我想横向对比其他机器人项目</td><td><code>09_机器人项目横向对比.md</code></td></tr>
+            <tr><td>我想自己造一台机器人</td><td><code>10_从零造一台自己的机器人.md</code></td></tr>
+        </table>
+
+        <h2>这台鸭子到底是什么 —— 一句话总结</h2>
+        <blockquote>
+            一台<strong>会感知（IMU + 摄像头 + ToF + 触觉）、会思考（ONNX 策略网络 50 Hz）、会执行（14 个位置伺服 + 一个能"抓"的鸟喙）</strong>的双足机器人，全部跑在一个 RK3566（4×A55）上，整机含电池 800 g，续航约 1 小时，零售价 $399。
+        </blockquote>
+
+        <p>这句话里每一个名词都会在后面的文档里展开。</p>
+
+        <h2>你现在能直接做的几件事（按难度递增）</h2>
+        <table>
+            <tr><th>#</th><th>行动</th><th>时间</th></tr>
+            <tr><td>1</td><td>在 MuJoCo Studio 里打开 <code>scene.xml</code>，看看鸭子长什么样</td><td>30 秒</td></tr>
+            <tr><td>2</td><td><code>uv run scripts/infer_policy.py --walking out.onnx</code> 看策略驱动</td><td>5 分钟</td></tr>
+            <tr><td>3</td><td><code>uv run train Mjlab-Velocity-Flat-MicroDuck --env.scene.num-envs 64 --agent.max_iterations 5</code> 跑一个 smoke test</td><td>10 分钟</td></tr>
+            <tr><td>4</td><td>读 <code>AGENTS.md</code>，理解 sim2real 的所有 invariant</td><td>1 小时</td></tr>
+            <tr><td>5</td><td>在 <code>notes/</code> 写第一篇笔记："今天我看到鸭子倒下时……"</td><td>立刻</td></tr>
+        </table>
+
+        <p>做完第 3 步以后，回过头来读 <code>01_训练入门.md</code>，会顺畅很多。</p>
+    </div>
+</body>
+</html>

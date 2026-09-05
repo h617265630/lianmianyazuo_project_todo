@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microduck 完整文档</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.7;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .toc {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+        .toc h2 { color: #ffd700; margin-bottom: 16px; }
+        .toc ul { list-style: none; display: flex; flex-wrap: wrap; gap: 12px; }
+        .toc a { color: #94a3b8; text-decoration: none; padding: 6px 14px; background: rgba(255,255,255,0.05); border-radius: 20px; transition: all 0.2s; }
+        .toc a:hover { background: #ffd700; color: #1a1a2e; }
+        .doc { max-width: 900px; margin: 0 auto; padding: 40px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .doc:last-child { border-bottom: none; }
+        .doc h1 { font-size: 1.8em; color: #fff; margin-bottom: 8px; }
+        .doc .doc-meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        .doc h2 { color: #ffd700; font-size: 1.3em; margin: 30px 0 15px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .doc h3 { color: #8b5cf6; font-size: 1.1em; margin: 20px 0 10px; }
+        .doc p { margin: 12px 0; color: #ccc; }
+        .doc table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        .doc th, .doc td { padding: 10px 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        .doc th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        .doc tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        .doc code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        .doc pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        .doc pre code { background: none; padding: 0; color: #a5b4fc; }
+        .doc ul, .doc ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        .doc li { margin: 6px 0; }
+        .doc blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 16px 0; color: #888; font-style: italic; }
+        .doc a { color: #60a5fa; }
+        .doc hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        .back-to-top { position: fixed; bottom: 20px; right: 20px; background: #ffd700; color: #1a1a2e; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1.5em; box-shadow: 0 4px 20px rgba(255,215,0,0.3); }
+    </style>
+</head>
+<body>
+
+<div class="toc">
+    <h2>📑 文档目录</h2>
+    <ul>
+        <li><a href="#readme">README</a></li>
+        <li><a href="#01">01 训练入门</a></li>
+        <li><a href="#02">02 多动作联合训练</a></li>
+        <li><a href="#03">03 让鸭子更像活物</a></li>
+        <li><a href="#04">04 人机交互</a></li>
+        <li><a href="#05">05 硬件实现</a></li>
+        <li><a href="#06">06 学习路线</a></li>
+        <li><a href="#07">07 打通软硬件与RL</a></li>
+        <li><a href="#08">08 如何阅读这个项目</a></li>
+        <li><a href="#09">09 机器人项目横向对比</a></li>
+        <li><a href="#10">10 从零造一台自己的机器人</a></li>
+    </ul>
+</div>
+
+<a href="index.html" class="back-to-top">🦆</a>
+
+<!-- README -->
+<div class="doc" id="readme">
+<h1>🦆 duck_分析 — Microduck 项目学习笔记本</h1>
+<div class="doc-meta">README · 项目介绍</div>
+
+<blockquote>
+这是一个<strong>边做边学</strong>的目录：你每学到一个点就追加一条笔记（<code>notes/</code>），每跑通一个实验就贴一张图或一段日志（<code>figures/</code>）。<strong>不需要写得很整齐，先记下来比写得好更重要。</strong>
+</blockquote>
+
+<p>Microduck 是 Pollen Robotics / Hugging Face 推出的一台 25 cm 高、约 800 g 的开源双足机器人，全身 14 个 Dynamixel XL330 智能伺服。本仓库 <code>microduck_rl/</code> 是它的官方 RL 训练栈（mjlab + MuJoCo Warp + PPO），真机运行时在 <code>pollen-robotics/microduck</code>。</p>
+
+<h2>目录结构</h2>
+<pre><code>duck_分析/
+├── README.md                 ← 你正在读的
+├── 01_训练入门.md             ← 怎么跑起来一个会走路的鸭子
+├── 02_多动作联合训练.md        ← 怎么让鸭子同时会坐、站、踢、走
+├── 03_让鸭子更像活物.md        ← 闲置动作、个性、行为混合、随机性
+├── 04_人机交互.md             ← 怎么"指挥"一只鸭子：游戏手柄 / NFC / 语音 / LED
+├── 05_硬件实现.md             ← 主板、伺服、电池、传感器、PCB
+├── 06_学习路线.md             ← 想深入 PCB / 嵌入式 / RL / 力学时的书单与项目
+├── 07_打通软硬件与RL的任督二脉.md ← 怎么把"硬件 + 软件 + RL"三层合在一起
+├── 08_如何阅读这个项目.md       ← 手把手的 4 周阅读计划（带 file:line）
+├── 09_机器人项目横向对比.md     ← Microduck vs Unitree / Solo / ALOHA / SO-ARM100 等
+├── 10_从零造一台自己的机器人.md  ← 5 阶段造机指南（BOM + 代码 + 陷阱）
+├── notes/                    ← 你的随手笔记（建议按日期命名 notes/2026-09-04-xxx.md）
+└── figures/                  ← 截图、wandb 图、错误信息
+</code></pre>
+
+<h2>阅读顺序建议</h2>
+<table>
+<tr><th>你的目标</th><th>先读</th></tr>
+<tr><td>我就想立刻在 MuJoCo 里看到鸭子</td><td><code>01_训练入门.md</code> 第 1-2 节</td></tr>
+<tr><td>我想自己训一个会走 / 站 / 踢的策略</td><td><code>01_训练入门.md</code> 第 3 节</td></tr>
+<tr><td>我想知道 7 个预训练动作是怎么编排的</td><td><code>02_多动作联合训练.md</code></td></tr>
+<tr><td>我想让鸭子有点个性（不是 7 段固定脚本）</td><td><code>03_让鸭子更像活物.md</code></td></tr>
+<tr><td>我想拿游戏手柄 / 语音 / NFC 控制它</td><td><code>04_人机交互.md</code></td></tr>
+<tr><td>我想搞懂硬件、做自己的微缩机器人</td><td><code>05_硬件实现.md</code> + <code>06_学习路线.md</code></td></tr>
+<tr><td>我想打通软硬件+RL 三层</td><td><code>07_打通软硬件与RL的任督二脉.md</code></td></tr>
+<tr><td>我想系统读完 microduck_rl 源码</td><td><code>08_如何阅读这个项目.md</code></td></tr>
+<tr><td>我想横向对比其他机器人项目</td><td><code>09_机器人项目横向对比.md</code></td></tr>
+<tr><td>我想自己造一台机器人</td><td><code>10_从零造一台自己的机器人.md</code></td></tr>
+</table>
+
+<h2>这台鸭子到底是什么 —— 一句话总结</h2>
+<blockquote>
+一台<strong>会感知（IMU + 摄像头 + ToF + 触觉）、会思考（ONNX 策略网络 50 Hz）、会执行（14 个位置伺服 + 一个能"抓"的鸟喙）</strong>的双足机器人，全部跑在一个 RK3566（4×A55）上，整机含电池 800 g，续航约 1 小时，零售价 $399。
+</blockquote>
+</div>
+
+<!-- 01 训练入门 -->
+<div class="doc" id="01">
+<h1>01 · 训练入门 —— 把鸭子跑起来</h1>
+<div class="doc-meta">目标：搞清楚训练一次策略到底在干嘛，以及 14 个伺服怎么从权重变成动作。</div>
+
+<h2>1. 最小观看流程（不训练）</h2>
+<pre><code># 假设你已经有 out.onnx（怎么来见第 3 节）
+uv run scripts/infer_policy.py --walking out.onnx
+</code></pre>
+
+<h2>2. 一次完整训练在做什么</h2>
+<pre><code>┌────────────────────────────────────────────────────────────────────┐
+│   MuJoCo Warp (mjlab)              4096 个并行机器人（4096 个 env）│
+│   ┌──────────────────┐  ctrl[14]  ┌──────────────┐                │
+│   │  物理仿真 50Hz    │ ──────────▶│ 14 个 XL330  │                │
+│   │  + 接触 + 摩擦    │            │ BAM 电机模型 │                │
+│   └──────────────────┘  状态/传感 │ + 域随机化    │                │
+│             ▲                    └──────────────┘                │
+│             │ obs[61]                                              │
+│   ┌──────────────────┐                                             │
+│   │  PPO 策略网络     │ ◀── wandb 记录 reward / loss / 视频       │
+│   └──────────────────┘                                             │
+└────────────────────────────────────────────────────────────────────┘
+</code></pre>
+
+<h2>关键命令</h2>
+<pre><code># 列出所有可用任务
+uv run list-envs
+
+# 烟雾测试：64 env × 5 iter，10 分钟能跑完
+uv run train Mjlab-Velocity-Flat-MicroDuck \
+    --env.scene.num-envs 64 \
+    --agent.max_iterations 5
+
+# 正式训练（需要 GPU）
+uv run train Mjlab-Velocity-Flat-MicroDuck \
+    --env.scene.num-envs 4096
+</code></pre>
+
+<h2>3. "任务"到底是什么</h2>
+<p>仓库里 <code>src/mjlab_microduck/tasks/</code> 每个 <code>microduck_*.py</code> 都是一个<strong>任务</strong>（env 配置）。</p>
+
+<table>
+<tr><th>任务 ID</th><th>干什么</th></tr>
+<tr><td><code>Mjlab-Velocity-Flat-MicroDuck</code></td><td>速度指令跟踪（走路，最基础）</td></tr>
+<tr><td><code>Mjlab-Velocity-Rough-MicroDuck</code></td><td>同上，地形是起伏的</td></tr>
+<tr><td><code>Mjlab-VelStand-Flat-MicroDuck</code></td><td>速度 + 站立组合（VelStand）</td></tr>
+<tr><td><code>Mjlab-StandUp-Flat-MicroDuck</code></td><td>摔倒后站起来（episodic）</td></tr>
+<tr><td><code>Mjlab-SitStand-Flat-MicroDuck</code></td><td>坐 ↔ 立切换（双向，受命令控制）</td></tr>
+<tr><td><code>Mjlab-GroundPick-Flat-MicroDuck</code></td><td>用鸟喙"捡"东西</td></tr>
+<tr><td><code>Mjlab-BallKick-Flat-MicroDuck</code></td><td>踢球</td></tr>
+<tr><td><code>Mjlab-Roulade-Flat-MicroDuck</code></td><td>前滚翻（最花哨的一个）</td></tr>
+</table>
+
+<h2>4. RL 新手极简术语表</h2>
+<table>
+<tr><th>术语</th><th>一句话</th><th>在鸭子里的具体含义</th></tr>
+<tr><td><strong>环境 (env)</strong></td><td>仿真的世界</td><td>4096 份 MuJoCo，每份放一只鸭子</td></tr>
+<tr><td><strong>状态 (state)</strong></td><td>世界的全部信息</td><td>MuJoCo 内部的 <code>qpos</code> + <code>qvel</code></td></tr>
+<tr><td><strong>观测 (obs)</strong></td><td>鸭子能"看到"的信息</td><td>61 维向量：关节角 + IMU + 速度指令</td></tr>
+<tr><td><strong>动作 (action)</strong></td><td>鸭子能"做"的事</td><td>14 维：每个伺服的目标角度偏移</td></tr>
+<tr><td><strong>策略 (policy)</strong></td><td>obs → action 的映射</td><td>一个 MLP，~几十 KB</td></tr>
+<tr><td><strong>奖励 (reward)</strong></td><td>这一步"做得好不好"</td><td>走路快 + 摔倒 - 抖动 -</td></tr>
+<tr><td><strong>PPO 更新</strong></td><td>用一批数据让策略"变好"</td><td>一次反向传播 + 梯度裁剪</td></tr>
+<tr><td><strong>episode</strong></td><td>从头到尾的一次尝试</td><td>鸭子从站立 → 摔倒 / 走完</td></tr>
+<tr><td><strong>iteration</strong></td><td>收集一批数据 + 更新一次</td><td>24 步 × 4096 env ≈ 100k transition</td></tr>
+</table>
+</div>
+
+<!-- 02 多动作联合训练 -->
+<div class="doc" id="02">
+<h1>02 · 多动作联合训练 —— 怎么让鸭子会很多事</h1>
+<div class="doc-meta">核心答案：每个动作是一个独立的 ONNX 策略，运行时由 daemon 按 slot 切换。</div>
+
+<h2>官方动作 / 槽位表</h2>
+<pre><code>SLOTS = ("walk", "stand", "sitstand", "ground_pick",
+         "kick_left", "kick_right", "roulade")
+</code></pre>
+
+<table>
+<tr><th>Slot</th><th>含义</th><th>任务 ID</th><th>kind</th></tr>
+<tr><td><code>walk</code></td><td>走路（默认）</td><td><code>Mjlab-Velocity-Flat-MicroDuck</code></td><td>perpetual</td></tr>
+<tr><td><code>stand</code></td><td>站立</td><td>（专用的站立任务）</td><td>perpetual</td></tr>
+<tr><td><code>sitstand</code></td><td>坐 ↔ 站（按命令切换）</td><td><code>Mjlab-SitStand-Flat-MicroDuck</code></td><td>perpetual</td></tr>
+<tr><td><code>ground_pick</code></td><td>用嘴捡东西</td><td><code>Mjlab-GroundPick-Flat-MicroDuck</code></td><td>episodic</td></tr>
+<tr><td><code>kick_left</code></td><td>左脚踢球</td><td><code>Mjlab-BallKick-Flat-MicroDuck</code></td><td>episodic</td></tr>
+<tr><td><code>kick_right</code></td><td>右脚踢球</td><td><code>Mjlab-BallKick-Flat-MicroDuck</code></td><td>episodic</td></tr>
+<tr><td><code>roulade</code></td><td>前滚翻</td><td><code>Mjlab-Roulade-Flat-MicroDuck</code></td><td>episodic</td></tr>
+</table>
+
+<h2>kind 字段：episodic vs perpetual</h2>
+<ul>
+<li><strong>perpetual（永久性的）</strong>：没有终止时间，一直跑直到 daemon 让它停。走路 / 站立 / sitstand 都是这种。</li>
+<li><strong>episodic（一次性的）</strong>：有时间限制 <code>duration_s</code>，到时间自己停。踢球 / 滚翻 / 捡东西都是这种。</li>
+</ul>
+
+<h2>多个 ONNX 在运行时是怎么"联合"起来的</h2>
+<pre><code>鸭子不是"一个大脑"，而是"一窝专家 + 一个调度员"。
+
+┌─────────────────────────────────────────────────────────────┐
+│  robotd (Rust daemon, 50 Hz)                                  │
+│  ┌──────────┐    policy_id    ┌──────────────────────────┐   │
+│  │ Scheduler │ ──────────────▶ │ 当前激活的 ONNX 推理     │   │
+│  │ (state    │                 │ (单线程 onnxruntime)    │   │
+│  │  machine) │ ◀──────────────  │                         │   │
+│  └──────────┘    ctrl[14]     └──────────────────────────┘   │
+│       ▲                                  ▲                   │
+│       │ gamepad / NFC / voice / app      │ obs[61]           │
+└───────┼──────────────────────────────────┼───────────────────┘
+</code></pre>
+
+<h2>自己加一个新动作的完整流程</h2>
+<pre><code># 1. 写任务配置（加到 tasks/）
+# 2. 在 tasks/__init__.py 注册
+# 3. 训练
+uv run train Mjlab-Bow-Flat-MicroDuck --env.scene.num-envs 4096
+
+# 4. 发布
+uv run publish --task Mjlab-Bow-Flat-MicroDuck \
+    --wandb-run-path <...> \
+    --repo <you>/microduck-bow \
+    --kind episodic --duration-s 3.0
+
+# 5. 真机加载
+sudo robotctl policy add bow <you>/microduck-bow
+robotctl robot do bow   # 触发鞠躬
+</code></pre>
+</div>
+
+<!-- 03 让鸭子更像活物 -->
+<div class="doc" id="03">
+<h1>03 · 让鸭子更像活物 —— 从"执行命令"到"有生命感"</h1>
+<div class="doc-meta">一个能走 / 能踢 / 能坐的机器依然是机械的。让它"像活物"，是另一层设计。</div>
+
+<h2>什么叫"像活物"</h2>
+<table>
+<tr><th>不像活物</th><th>像活物</th></tr>
+<tr><td>给指令才动，不给指令就僵住</td><td>不给指令时晃头、踱步、梳理羽毛</td></tr>
+<tr><td>100% 重复同一动作</td><td>走路时偶尔绊一下、停一下看</td></tr>
+<tr><td>一接命令立刻响应</td><td>假装"思考"一下再执行</td></tr>
+<tr><td>永远成功执行</td><td>偶尔失败——踢偏、没站稳</td></tr>
+<tr><td>表情（LED）恒定</td><td>收到指令时亮眼、摔倒了低头</td></tr>
+</table>
+
+<h2>行为分层的思路</h2>
+<pre><code>          ▲
+         /│\         第 3 层：性格 / 个性（idle 动作、声音、LED 节奏）
+        / │ \            ↑ 长期不变，但每次执行有微小差异
+       /──┼──\
+      /  │  \        第 2 层：反应 / 触发（被吓到 → 颤一下）
+     /   │   \          ↑ 由事件驱动：声音、触摸、NFC、视觉
+    /────┼────\
+   / 技能层  \        第 1 层：技能 / 任务（走、踢、鞠躬）
+  /─────────────\       ↑ 当前 ONNX 策略
+</code></pre>
+
+<h2>闲置动作（idle behavior）</h2>
+<ul>
+<li><strong>头部 idle</strong>：散步时让 head 微微晃，训一个 head_idle 策略或 sinusoidal 命令</li>
+<li><strong>踱步</strong>：走路指令加微小的随机扰动，让速度不是 0</li>
+<li><strong>姿态整理</strong>：偶尔触发一个 0.5 s 的"伸懒腰" episodic 策略</li>
+</ul>
+
+<h2>让鸭子"活"的 5 个具体动作（按 ROI 排序）</h2>
+<table>
+<tr><th>优先级</th><th>改动</th><th>效果</th></tr>
+<tr><td>🥇 1</td><td>LED 颜色映射状态</td><td>一眼能看出来是活的</td></tr>
+<tr><td>🥈 2</td><td>闲置时 head 微动 + 偶尔踱步</td><td>不会僵</td></tr>
+<tr><td>🥉 3</td><td>摔倒音效 + 挣扎几下再躺</td><td>"失败"也是表达</td></tr>
+<tr><td>4</td><td>触碰 / 声音触发反应</td><td>互动感</td></tr>
+<tr><td>5</td><td>多策略混合编排 + 个体微调</td><td>个性</td></tr>
+</table>
+</div>
+
+<!-- 04 人机交互 -->
+<div class="doc" id="04">
+<h1>04 · 人机交互 —— 怎么"指挥"一只鸭子</h1>
+<div class="doc-meta">鸭子从硬件上提供了 5 种交互通道：游戏手柄、NFC、语音、LED、动作触发。</div>
+
+<h2>5 种交互通道总览</h2>
+<pre><code>                 ┌─────────────────────────────────────────────┐
+                 │            duck（RK3566）                      │
+                 │   🎮 gamepad  ────▶ robotd / padd            │
+                 │   🏷️  NFC      ────▶ robotd / nfc             │
+                 │   🎤 mic       ────▶ wakeword + ASR          │
+                 │   💡 LED       ◀──── robotd                   │
+                 │   🔊 speaker   ◀──── robotd                   │
+                 └────────────┬─────────────────────────────────┘
+                              │ WebRTC / WiFi
+                              ▼
+                 ┌────────────────────────────────────────────┐
+                 │   App / CLI                                  │
+                 │   - robotctl policy add / do                 │
+                 │   - WebRTC video                             │
+                 └────────────────────────────────────────────┘
+</code></pre>
+
+<h2>游戏手柄（padd）</h2>
+<table>
+<tr><th>按键</th><th>功能（推测）</th></tr>
+<tr><td>左摇杆</td><td>速度指令（vx, vy）→ walk slot</td></tr>
+<tr><td>右摇杆</td><td>旋转 + 头部 yaw/pitch</td></tr>
+<tr><td>A / B / X / Y</td><td>触发 episodic：sitstand / ground_pick / kick_left / kick_right</td></tr>
+<tr><td>RB / LB</td><td>切换 walk ↔ stand</td></tr>
+</table>
+
+<h2>交互设计原则</h2>
+<ol>
+<li><strong>多通道冗余</strong>：同一个意图用多种方式都能触发（手柄 / NFC / 语音 / 触摸）</li>
+<li><strong>状态可见</strong>：LED / 声音让用户知道"它在干嘛"</li>
+<li><strong>永远可中断</strong>：用户随时按停 → 机器人能安全停下</li>
+<li><strong>失败可读</strong>：摔倒 = 红色 LED + 挣扎动作，不是黑屏</li>
+<li><strong>每条交互都有反馈</strong>：哪怕只是"嘎"一声，别静默</li>
+</ol>
+</div>
+
+<!-- 05 硬件实现 -->
+<div class="doc" id="05">
+<h1>05 · 硬件实现 —— 把每一颗螺丝看清楚</h1>
+<div class="doc-meta">数据来源：产品页、媒体报道、仓库 XML 元数据。★ 为推测。</div>
+
+<h2>整机参数（已确认）</h2>
+<table>
+<tr><th>项目</th><th>值</th><th>来源</th></tr>
+<tr><td>身高</td><td>25 cm</td><td>产品页</td></tr>
+<tr><td>体重</td><td>780–800 g</td><td>产品页 / 报道</td></tr>
+<tr><td>伺服数</td><td>14 + 1 鸟喙 = 15</td><td>产品页 + 仓库</td></tr>
+<tr><td>电池</td><td>NP-F550（2600 mAh，Sony 标准）</td><td>产品页</td></tr>
+<tr><td>续航</td><td>~1 h 持续运行</td><td>产品页</td></tr>
+<tr><td>售价</td><td>$399 预购</td><td>产品页</td></tr>
+</table>
+
+<h2>主板 / 计算单元</h2>
+<table>
+<tr><th>部件</th><th>规格</th></tr>
+<tr><td>SoC</td><td>Rockchip RK3566（4× Cortex-A55 @ 1.8 GHz）</td></tr>
+<tr><td>RAM</td><td>1 GB LPDDR4</td></tr>
+<tr><td>存储</td><td>32 GB eMMC</td></tr>
+<tr><td>控制频率</td><td>50 Hz</td></tr>
+</table>
+
+<h2>伺服系统：Dynamixel XL330-M288-T</h2>
+<table>
+<tr><th>参数</th><th>值</th></tr>
+<tr><td>电机</td><td>空心杯有刷 DC</td></tr>
+<tr><td>编码器</td><td>12-bit 磁编（4096 分辨率）</td></tr>
+<tr><td>通信</td><td>TTL 半双工总线（daisy chain）</td></tr>
+<tr><td>协议</td><td>Dynamixel Protocol 2.0</td></tr>
+<tr><td>力矩</td><td>~0.42–0.6 N·m</td></tr>
+</table>
+
+<h2>14 个伺服的关节映射</h2>
+<pre><code>0  left_hip_yaw      ┐
+1  left_hip_roll      │
+2  left_hip_pitch     │ 左腿 5 个
+3  left_knee          │
+4  left_ankle        ┘
+5  neck_pitch        ┐
+6  head_pitch         │ 脖子 / 头 4 个
+7  head_yaw          │
+8  head_roll         ┘
+9  right_hip_yaw     ┐
+10 right_hip_roll    │
+11 right_hip_pitch   │ 右腿 5 个
+12 right_knee        │
+13 right_ankle      ┘
+</code></pre>
+
+<h2>$399 的机器人成本拆解 ★ 推测</h2>
+<table>
+<tr><th>部件</th><th>估算成本</th></tr>
+<tr><td>15 × XL330（批发价 ~$25/颗）</td><td>$375</td></tr>
+<tr><td>RK3566 + RAM + eMMC</td><td>$25</td></tr>
+<tr><td>电池 NP-F550</td><td>$15</td></tr>
+<tr><td>PCB + 被动元件</td><td>$15</td></tr>
+<tr><td>外壳（塑料件）</td><td>$20</td></tr>
+<tr><td>传感器（IMU ×2, ToF, 麦克风, 摄像头, NFC ×2）</td><td>$20</td></tr>
+<tr><td><strong>BOM 合计</strong></td><td><strong>~$480</strong></td></tr>
+</table>
+<p>BOM 接近售价 → Pollen 走的是生态 / 软件 / 销量路线，硬件不赚钱。</p>
+</div>
+
+<!-- 06 学习路线 -->
+<div class="doc" id="06">
+<h1>06 · 学习路线 —— 从这只鸭子出发，能学什么、怎么学</h1>
+<div class="doc-meta">推荐路线以"做中学"为主，每一阶段都有具体的练习任务。</div>
+
+<h2>学习路径总览</h2>
+<pre><code>            ▲  "我能造一台自己的"
+            │     PCB + 嵌入式固件（10）
+            │  "我能让它思考"
+            │     强化学习核心（6, 7）
+            │  "我能看到它动"
+            │     MuJoCo + 机器人学基础（3, 4, 5）
+            │  "我会用 Python"
+            │     Python 工程基础（1, 2）
+            └──────────────────────────────────►
+</code></pre>
+
+<h2>各阶段推荐</h2>
+<table>
+<tr><th>阶段</th><th>时间投入</th><th>目标</th><th>在鸭子上的产出</th></tr>
+<tr><td>1. Python 工程</td><td>1 周</td><td>熟悉 dataclass / uv</td><td>读懂 microduck_constants.py</td></tr>
+<tr><td>2. Linux</td><td>1 周</td><td>会用 systemd / journal</td><td>部署一个简单 daemon</td></tr>
+<tr><td>3. 机器人学</td><td>4 周</td><td>懂 DH / 动力学</td><td>算站立力矩</td></tr>
+<tr><td>4. MuJoCo</td><td>2 周</td><td>会改 MJCF</td><td>改地形、加传感器</td></tr>
+<tr><td>5. RL 基础</td><td>8 周</td><td>懂 PPO / GAE</td><td>改 reward、调超参</td></tr>
+<tr><td>6. sim2real</td><td>4 周</td><td>懂 DR / 系统辨识</td><td>加新 DR 项</td></tr>
+</table>
+
+<h2>推荐书 / 课程清单</h2>
+<ul>
+<li><strong>入门</strong>：《Python 编程：从入门到实践》《流畅的 Python》</li>
+<li><strong>机器人</strong>：《Modern Robotics》（Lynch & Park）、《Introduction to Autonomous Mobile Robots》（Siegwart）</li>
+<li><strong>强化学习</strong>：《强化学习》（Sutton & Barto，第二版）——免费 PDF、Spinning Up（OpenAI）</li>
+<li><strong>嵌入式 / PCB</strong>：《Making Embedded Systems》（Elecia White）、《The Art of Electronics》</li>
+</ul>
+
+<h2>立即开始的 3 个动作</h2>
+<ol>
+<li><strong>跑通 smoke test</strong>：<code>uv run train Mjlab-Velocity-Flat-MicroDuck --env.scene.num-envs 64 --agent.max_iterations 5</code></li>
+<li><strong>读 AGENTS.md</strong>：整整一本书的精华，2 小时读完</li>
+<li><strong>在 notes/ 写第一篇笔记</strong>：今天看到什么、学到什么、卡在哪里</li>
+</ol>
+</div>
+
+<!-- 07 打通软硬件与RL -->
+<div class="doc" id="07">
+<h1>07 · 打通软硬件 + RL 的任督二脉</h1>
+<div class="doc-meta">核心论点：通过 Microduck 这一个真实项目，把"硬件 + 软件 + 强化学习"三层从抽象名词变成可改的代码行。</div>
+
+<h2>为什么"打通"很难 —— 三类典型困境</h2>
+<table>
+<tr><th>困境</th><th>典型表现</th><th>仓库里的破局点</th></tr>
+<tr><td><strong>纯软件 → 不会硬件</strong></td><td>调一周 reward，仿真走稳，到真机跌倒</td><td>friction_dr_bam.py 把电压-电流-摩擦显式建模</td></tr>
+<tr><td><strong>纯硬件 → 不会 RL</strong></td><td>能 PWM 控制 SG90，但不知策略怎么训</td><td>microduck_velocity_env_cfg.py 把 task 用 dataclass 拆开</td></tr>
+<tr><td><strong>纯 RL → 不会落地</strong></td><td>HalfCheetah 训得不错，但 ONNX 怎么上板没碰过</td><td>export.py + publish/cli.py 把 train → ONNX → HF Hub → robotctl load 画成 4 条命令</td></tr>
+</table>
+
+<h2>7 步打通路线</h2>
+<ol>
+<li><strong>步 1：会用 MuJoCo viewer</strong>（Week 1–2）：打开 scene.xml；infer_policy.py 按 WASD/IJKL</li>
+<li><strong>步 2：改一个 reward</strong>（Week 3–4）：改 pose.weight 1.0 → 1.5，跑 5-iter smoke</li>
+<li><strong>步 3：加一个新传感器</strong>（Week 5–6）：加 ContactSensorCfg 监测 foot contact</li>
+<li><strong>步 4：用真实伺服校准 BAM</strong>（Week 7–8）：跑 validate_bam_testbench.py</li>
+<li><strong>步 5：训一个简单任务</strong>（Week 9–10）：5-iter smoke → 4096 env 跑 1000 iter</li>
+<li><strong>步 6：部署到真机</strong>（Week 11–12）：export.py → publish → robotctl policy load</li>
+<li><strong>步 7：端到端调通</strong>（Week 13–16）：发现真机会向后倒 → 检查 IMU 偏置</li>
+</ol>
+
+<h2>30 / 90 / 180 天计划</h2>
+<table>
+<tr><th>时间窗</th><th>目标</th><th>具体任务</th></tr>
+<tr><td><strong>Day 1–30</strong></td><td>把鸭子跑起来 + 改通 reward</td><td>步 1+2+3</td></tr>
+<tr><td><strong>Day 31–90</strong></td><td>端到端跑通 1 个任务</td><td>步 4+5 + 1000 iter</td></tr>
+<tr><td><strong>Day 91–180</strong></td><td>真机闭环（哪怕是替代品）</td><td>步 6+7 + wiki 总结</td></tr>
+</table>
+</div>
+
+<!-- 08 如何阅读这个项目 -->
+<div class="doc" id="08">
+<h1>08 · 如何阅读这个项目 —— 给新人的 4 周入门路径</h1>
+<div class="doc-meta">回答：我应该先读哪一份代码，按什么顺序读，读的时候盯着什么看？</div>
+
+<h2>整体代码地图（按依赖关系分层）</h2>
+<table>
+<tr><th>层</th><th>关心的对象</th><th>在仓库里的入口</th></tr>
+<tr><td><strong>L0 · 物理与仿真</strong></td><td>MJCF / MuJoCo / BAM</td><td>src/mjlab_microduck/robot/microduck/*.xml</td></tr>
+<tr><td><strong>L1 · 环境</strong></td><td>env_cfg / mdp 函数 / DR</td><td>src/mjlab_microduck/tasks/*.py</td></tr>
+<tr><td><strong>L2 · 训练</strong></td><td>PPO / rsl_rl / runner</td><td>间接：mjlab 包，触发点在 train_cli.py</td></tr>
+<tr><td><strong>L3 · 导出与发布</strong></td><td>ONNX / manifest / Hub</td><td>src/mjlab_microduck/export.py、publish/</td></tr>
+<tr><td><strong>L4 · 真机</strong></td><td>daemon / robotd / updater</td><td>不在这个仓库！在 pollen-robotics/microduck</td></tr>
+</table>
+
+<h2>4 周阅读计划</h2>
+<ul>
+<li><strong>Week 1</strong>：把 MuJoCo 那层吃透（scene.xml、robot_walk.xml、BAM actuator）</li>
+<li><strong>Week 2</strong>：把 env / mdp 这层读通（HOME_FRAME、mdp.py 主要函数、velocity_env_cfg）</li>
+<li><strong>Week 3</strong>：训练、导出、发布（rsl_rl 训练流程、export.py、manifest.py）</li>
+<li><strong>Week 4</strong>：真机回路 + 综合实战（infer_policy.py 调试策略、daemon 源码）</li>
+</ul>
+
+<h2>必读 10 个文件 / 段落</h2>
+<table>
+<tr><th>#</th><th>文件 / 段落</th><th>读这一段要看出什么</th></tr>
+<tr><td>1</td><td>scene.xml :30-40</td><td>STAND2 keyframe 的 14 个弧度值</td></tr>
+<tr><td>2</td><td>microduck_constants.py :85-109</td><td>HOME_FRAME 的正则 + 数值 + STAND2 为什么这么定</td></tr>
+<tr><td>3</td><td>microduck_constants.py :132-145</td><td>BAM actuator kwargs 的取值与物理含义</td></tr>
+<tr><td>4</td><td>friction_dr_bam.py :28-104</td><td>怎么继承 BAM、怎么加 friction_scale</td></tr>
+<tr><td>5</td><td>tasks/__init__.py :1-7</td><td>--hf-jobs 拦截点的位置</td></tr>
+<tr><td>6</td><td>mdp.py :24-58</td><td>两处 NaN monkey-patch 和它们各自的触发时机</td></tr>
+<tr><td>7</td><td>microduck_velocity_env_cfg.py :277-301</td><td>pose + upright + foot_slip 这三个 reward 的 patch 链</td></tr>
+<tr><td>8</td><td>manifest.py :22-86, 185-218</td><td>61/14 的契约、Provenance、validate_manifest</td></tr>
+</table>
+</div>
+
+<!-- 09 机器人项目横向对比 -->
+<div class="doc" id="09">
+<h1>09 · 机器人项目横向对比 — 项目地图册</h1>
+<div class="doc-meta">面向想"动手玩真机"但不知道买谁的你。2025 年视角、按价位排的开源 / 商业机器人项目地图册。</div>
+
+<h2>桌面级（< $500）</h2>
+<table>
+<tr><th>项目</th><th>价格</th><th>形态 / DOF</th><th>训练方式</th><th>开源</th></tr>
+<tr><td><strong>Microduck</strong></td><td>$399</td><td>双足 14 DOF</td><td>仿真 PPO + ONNX 部署</td><td>Apache 2.0</td></tr>
+<tr><td>Reachy Mini Lite</td><td>$299</td><td>桌面头 + 旋转躯干，6+1 DOF</td><td>HF Transformers / Python SDK</td><td>Apache 2.0</td></tr>
+<tr><td>SO-ARM100</td><td>~$100–300（DIY）</td><td>5+5 DOF 机械臂</td><td>LeRobot ACT / DP3 / SARM</td><td>Apache 2.0</td></tr>
+<tr><td>Poppy Ergo Jr</td><td>~$300–500</td><td>6 DOF 单臂（3D 打印）</td><td>Python + snap!</td><td>GPL v3</td></tr>
+</table>
+
+<h2>Microduck 在生态中的位置</h2>
+<blockquote>
+Microduck 是"RL + 腿足 + 端到端"路径上能买到的<strong>最低门槛实物</strong>。
+
+<ul>
+<li>比它便宜的：仿真（MuJoCo / Isaac Lab，$0）；桌面臂 SO-ARM100（无腿，$100）</li>
+<li>比它便宜的腿足实物：几乎没有 —— Stanford Pupper 自购件可压到 $600，但属于四足 DIY 路线</li>
+<li>同价位唯一对手：Reachy Mini（$299/$449）但它是无腿桌面头 + 对话路线</li>
+</ul>
+</blockquote>
+
+<h2>推荐学习组合（按路径）</h2>
+<ul>
+<li><strong>路径 A：全栈通用路线</strong>：Microduck（$399）→ Unitree G1（$13.5k+）→ Reachy 2 / Unitree H1</li>
+<li><strong>路径 B：操作专项路线</strong>：SO-ARM100 + LeRobot（$200）→ ALOHA / Mobile ALOHA（$20k–32k）→ Franka Panda</li>
+<li><strong>路径 C：学术控制路线</strong>：Microduck（$399）→ Open Dynamic Robot Initiative Solo（$15k–30k）→ MIT Mini Cheetah</li>
+</ul>
+
+<h2>选购注意事项</h2>
+<ol>
+<li><strong>价格 ≠ 能力</strong>：Trossen WidowX AI $4.5k 在 LeRobot 上比某些 $15k 桌面臂更易用</li>
+<li><strong>开源 ≠ 免费</strong>：硬件 CAD 全开源，但 BOM / 训练数据 / 部署栈仍要付费</li>
+<li><strong>控制频率是分水岭</strong>：500 Hz 以下桌面级跑 RL 微调很容易；1 kHz 力矩环以上才适合高动态接触任务</li>
+<li><strong>sim2real 不等于"训练一次就行"</strong>：Microduck 同价位优势在于训练栈与硬件一体</li>
+</ol>
+</div>
+
+<!-- 10 从零造一台自己的机器人 -->
+<div class="doc" id="10">
+<h1>10 · 从零造一台自己的机器人——一份"创业指南"式的工程化路径</h1>
+<div class="doc-meta">面向想从仿真走到真机的工程师 / 研究员 / 学生。</div>
+
+<h2>总原则</h2>
+<table>
+<tr><th>原则</th><th>解释</th><th>为什么</th></tr>
+<tr><td>先仿真，再半实物，最后真机</td><td>第一版策略必须在 sim 里跑出能看的录像</td><td>仿真失败 0 元，真机失败 200 元+受伤风险</td></tr>
+<tr><td>从轮式到腿式</td><td>差速驱动底盘 + 简单 RL → 桌面腿式 → 自研双足</td><td>失败半径递增，先把 RL/部署链路打通</td></tr>
+<tr><td>复用现成 BOM</td><td>Stanford Pupper / SO-ARM100 / Solo12 BOM 全公开</td><td>自研 = 集成，不是从零画 PCB</td></tr>
+<tr><td>训推同栈</td><td>训练用 mjlab + PPO，部署用 ONNX Runtime</td><td>不同栈必崩</td></tr>
+</table>
+
+<h2>阶段 0：纯仿真（$0，1–2 周）</h2>
+<pre><code>git clone https://github.com/pollen-robotics/microduck_rl
+cd microduck_rl
+uv sync
+uv run list-envs
+
+# smoke test
+uv run train Microduck-Velocity-Flat \
+   --env.scene.num-envs 64 \
+   --agent.max_iterations 5
+</code></pre>
+
+<h2>阶段 1：现成底盘 + Arduino / ESP32（$30–550，2–4 周）</h2>
+<table>
+<tr><th>项目</th><th>价格</th><th>主控</th><th>上手难度</th></tr>
+<tr><td>Balena Finch</td><td>~$80</td><td>Raspberry Pi Pico</td><td>★☆☆</td></tr>
+<tr><td>ELEGOO Smart Car V4</td><td>$50–70</td><td>Arduino Uno</td><td>★☆☆</td></tr>
+<tr><td>JetBot (Waveshare)</td><td>$395–464</td><td>Jetson Nano 4GB</td><td>★★☆</td></tr>
+<tr><td>TurtleBot 3 Burger</td><td>$549</td><td>Raspberry Pi 4 + OpenCR</td><td>★★★</td></tr>
+</table>
+
+<h2>阶段 3：桌面腿足机器人（$400–2000，8–16 周）</h2>
+<table>
+<tr><th>项目</th><th>价格</th><th>DOF</th><th>备注</th></tr>
+<tr><td>Stanford Pupper / Mini Pupper</td><td>$400–600 DIY</td><td>12</td><td>12× MG996R + PCA9685 + Pi 4</td></tr>
+<tr><td>Open-Dynamic-Robot-Initiative Solo12</td><td>~$3000（DIY）</td><td>12</td><td>Max Planck 开源，研究级</td></tr>
+<tr><td>Microduck 自购</td><td>$399</td><td>14</td><td>你正在读的就是它的训练栈</td></tr>
+</table>
+
+<h2>阶段 4：自研（$2000+，16 周+）</h2>
+<h3>计算单元选型</h3>
+<table>
+<tr><th>选型</th><th>价格</th><th>AI 算力</th><th>功耗</th></tr>
+<tr><td>Raspberry Pi 4 (4GB)</td><td>$55</td><td>CPU only</td><td>7W</td></tr>
+<tr><td>Jetson Orin Nano 8GB</td><td>$199</td><td>40 TOPS</td><td>15–25W</td></tr>
+<tr><td>RK3566 / RK3588 板</td><td>$60–150</td><td>1–6 TOPS</td><td>5–12W</td></tr>
+</table>
+
+<h3>伺服选型</h3>
+<table>
+<tr><th>型号</th><th>电压</th><th>扭矩</th><th>通信</th><th>单价</th></tr>
+<tr><td><strong>Dynamixel XL330-M288-T</strong></td><td>5V</td><td>0.93 N·m</td><td>TTL half-duplex</td><td>$25–45</td></tr>
+<tr><td>STS3215 (Feetech)</td><td>12V</td><td>30 kg·cm</td><td>TTL</td><td>$25–35</td></tr>
+<tr><td>LX-16A (LewanSoul)</td><td>6–8.4V</td><td>17 kg·cm</td><td>TTL</td><td>$20</td></tr>
+</table>
+
+<h2>常见失败模式 + 对策</h2>
+<table>
+<tr><th>失败模式</th><th>症状</th><th>对策</th></tr>
+<tr><td>硬件到不了仿真精度</td><td>仿真走得好，真机摔跤</td><td>DR 必须覆盖质量 / 摩擦 / 延迟 / 间隙</td></tr>
+<tr><td>训练时长不够</td><td>跑了 200 iter 没收敛就放弃</td><td>简单 episodic ≈ 1000 iter；gaits ≈ 4000–6000 iter</td></tr>
+<tr><td>通信延迟失控</td><td>50 Hz 控制却用了 30 ms ROS2</td><td>仿真里直接训 latency-DR；真机走 UART + 共享内存</td></tr>
+<tr><td>ONNX 不一致</td><td>仿真精度 OK，ONNX 跑偏</td><td>normalizer 必须 baked-in</td></tr>
+</table>
+
+<h2>写在最后</h2>
+<blockquote>
+从仿真到出货，没有"加速键"。microduck 团队花了一年从 mjlab 的模板训出第一条能走的策略，再花半年处理 sim2real 的每一道墙。
+
+<strong>下一步</strong>：克隆 microduck_rl，跑 <code>uv run train Microduck-Velocity-Flat --env.scene.num-envs 64 --agent.max_iterations 5</code>。看到"Episode_Reward"在 wandb 里爬升时，就该去买第一台硬件了。
+</blockquote>
+</div>
+
+</body>
+</html>

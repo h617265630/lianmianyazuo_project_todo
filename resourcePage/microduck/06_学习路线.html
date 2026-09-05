@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06 学习路线 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        h3 { color: #8b5cf6; font-size: 1.1em; margin: 24px 0 12px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>06 · 学习路线 —— 从这只鸭子出发，能学什么、怎么学</h1>
+        <div class="meta">推荐路线以"做中学"为主，每一阶段都有具体的练习任务。</div>
+
+        <h2>0. 学习路径总览</h2>
+        <pre><code>            ▲  "我能造一台自己的"
+            │     PCB + 嵌入式固件（10）
+            │  "我能让它思考"
+            │     强化学习核心（6, 7）
+            │  "我能看到它动"
+            │     MuJoCo + 机器人学基础（3, 4, 5）
+            │  "我会用 Python"
+            │     Python 工程基础（1, 2）
+            └──────────────────────────────────►
+</code></pre>
+
+        <h2>1. Python 与工程基础</h2>
+        <h3>必会</h3>
+        <ul>
+            <li>Python 类型注解、<code>@dataclass</code>、<code>@configclass</code></li>
+            <li><code>pathlib</code>、<code>argparse</code> / <code>tyro</code></li>
+            <li>Git 基础：<code>commit</code>、<code>branch</code>、<code>rebase</code>、<code>diff</code></li>
+            <li><code>uv</code> 包管理（<code>uv add</code>、<code>uv sync</code>、<code>uv run</code>）</li>
+        </ul>
+
+        <h2>3. 机器人学基础</h2>
+        <table>
+            <tr><th>概念</th><th>在鸭子里对应</th></tr>
+            <tr><td>刚体 / 自由度 (DOF)</td><td>14 主动 + 1 鸟喙</td></tr>
+            <tr><td>关节 / 运动链</td><td>hip → knee → ankle</td></tr>
+            <tr><td>正运动学</td><td>关节角 → 末端位置</td></tr>
+            <tr><td>雅可比矩阵</td><td>关节速度 → 末端速度</td></tr>
+            <tr><td>动力学</td><td>力矩 = M(q)q̈ + C(q,q̇)q̇ + G(q)</td></tr>
+            <tr><td>接触 / 摩擦</td><td>脚底与地面</td></tr>
+        </table>
+
+        <h2>4. MuJoCo / 物理仿真</h2>
+        <h3>必会</h3>
+        <ul>
+            <li>MJCF（XML）：body、joint、geom、actuator、sensor</li>
+            <li>接触模型：condim、friction、solref、solimp</li>
+            <li>域随机化（DR）：uniform / loguniform、operation="add/scale"</li>
+        </ul>
+
+        <h2>5. 强化学习（核心）</h2>
+        <table>
+            <tr><th>概念</th><th>一句话</th></tr>
+            <tr><td>Markov Decision Process</td><td>(S, A, P, R, γ)</td></tr>
+            <tr><td>策略 π(a|s)</td><td>状态到动作的分布</td></tr>
+            <tr><td>价值函数 V(s)</td><td>从这个状态出发期望回报</td></tr>
+            <tr><td>优势函数 A(s,a)</td><td>比平均好多少</td></tr>
+            <tr><td>策略梯度 ∇J</td><td>怎么改参数让期望回报变大</td></tr>
+            <tr><td><strong>PPO</strong></td><td>限制每次更新幅度的策略梯度</td></tr>
+            <tr><td>GAE</td><td>优势函数估计</td></tr>
+        </table>
+
+        <h2>6. sim2real（鸭子最核心的难点）</h2>
+        <h3>必会</h3>
+        <ul>
+            <li>域随机化（DR）：电压、摩擦、质量、延迟、噪声</li>
+            <li>系统辨识：测真实伺服响应 → 拟合 BAM 参数</li>
+            <li>Backlash / 间隙 / 死区建模</li>
+            <li>观测 / 动作归一化</li>
+        </ul>
+
+        <h2>11. 学习路线总结表</h2>
+        <table>
+            <tr><th>阶段</th><th>时间投入</th><th>目标</th><th>在鸭子上的产出</th></tr>
+            <tr><td>1. Python 工程</td><td>1 周</td><td>熟悉 dataclass / uv</td><td>读懂 microduck_constants.py</td></tr>
+            <tr><td>2. Linux</td><td>1 周</td><td>会用 systemd / journal</td><td>部署一个简单 daemon</td></tr>
+            <tr><td>3. 机器人学</td><td>4 周</td><td>懂 DH / 动力学</td><td>算站立力矩</td></tr>
+            <tr><td>4. MuJoCo</td><td>2 周</td><td>会改 MJCF</td><td>改地形、加传感器</td></tr>
+            <tr><td>5. RL 基础</td><td>8 周</td><td>懂 PPO / GAE</td><td>改 reward、调超参</td></tr>
+            <tr><td>6. sim2real</td><td>4 周</td><td>懂 DR / 系统辨识</td><td>加新 DR 项</td></tr>
+            <tr><td>7. 自定义任务</td><td>4 周</td><td>训一个新动作</td><td>加一个 episodic</td></tr>
+            <tr><td>8. Daemon</td><td>4 周</td><td>Rust + IPC</td><td>写最小 daemon</td></tr>
+            <tr><td>9. PCB</td><td>8 周</td><td>STM32 + 总线</td><td>控制 1 个伺服</td></tr>
+            <tr><td>10. 机械</td><td>8 周</td><td>CAD + 3D 打印</td><td>一台简化版鸭子</td></tr>
+        </table>
+        <p><strong>总计 ~ 1.5 年业余时间</strong> 可以达到"能造一台简化版鸭子 + 训它走起来"的水平。</p>
+
+        <h2>12. 推荐书 / 课程清单</h2>
+        <h3>入门</h3>
+        <ul>
+            <li>《Python 编程：从入门到实践》</li>
+            <li>《流畅的 Python》</li>
+        </ul>
+        <h3>机器人</h3>
+        <ul>
+            <li>《Modern Robotics》—— Lynch & Park（免费 PDF）</li>
+            <li>《Introduction to Autonomous Mobile Robots》—— Siegwart</li>
+        </ul>
+        <h3>强化学习</h3>
+        <ul>
+            <li>《强化学习》（Sutton & Barto，第二版）——免费 PDF</li>
+            <li>Spinning Up（OpenAI）</li>
+        </ul>
+
+        <h2>13. 立即开始的 3 个动作</h2>
+        <ol>
+            <li><strong>跑通 smoke test</strong>：<code>uv run train Mjlab-Velocity-Flat-MicroDuck --env.scene.num-envs 64 --agent.max_iterations 5</code></li>
+            <li><strong>读 AGENTS.md</strong>：整整一本书的精华，2 小时读完</li>
+            <li><strong>在 notes/ 写第一篇笔记</strong>：今天看到什么、学到什么、卡在哪里</li>
+        </ol>
+    </div>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07 打通软硬件与RL - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>07 · 打通软硬件 + RL 的任督二脉</h1>
+        <div class="meta">核心论点：通过 Microduck 这一个真实项目，把"硬件 + 软件 + 强化学习"三层从抽象名词变成可改的代码行。</div>
+
+        <h2>1. 为什么"打通"很难 —— 三类典型困境</h2>
+        <table>
+            <tr><th>困境</th><th>典型表现</th><th>仓库里的破局点</th></tr>
+            <tr><td><strong>纯软件 → 不会硬件</strong></td><td>调一周 reward，仿真走稳，到真机跌倒</td><td>friction_dr_bam.py 把电压-电流-摩擦显式建模</td></tr>
+            <tr><td><strong>纯硬件 → 不会 RL</strong></td><td>能 PWM 控制 SG90，但不知策略怎么训</td><td>microduck_velocity_env_cfg.py 把 task 用 dataclass 拆开</td></tr>
+            <tr><td><strong>纯 RL → 不会落地</strong></td><td>HalfCheetah 训得不错，但 ONNX 怎么上板没碰过</td><td>export.py + publish/cli.py 把 train → ONNX → HF Hub → robotctl load 画成 4 条命令</td></tr>
+        </table>
+
+        <h2>3. 三层的具体交集点（核心表）</h2>
+        <table>
+            <tr><th>交集</th><th>触点文件</th><th>一句话解释</th></tr>
+            <tr><td>硬件 → RL</td><td>actuator/friction_dr_bam.py</td><td>BAM 把"电压→电机力矩→摩擦预算"封装成 RL 可见的扭矩</td></tr>
+            <tr><td>硬件 → RL</td><td>robot/microduck_constants.py</td><td>_BAM_ACTUATOR_KWARGS 里 vin_range=(6.5,8.2) 把电池电压波动烤成 DR</td></tr>
+            <tr><td>软件 → RL</td><td>microduck_velocity_env_cfg.py</td><td>env cfg 把 reward 按 dataclass 调权重；改任何一项都是改"RL 在优化什么"</td></tr>
+            <tr><td>RL → 硬件</td><td>export.py</td><td>注释明写"normalizer 烤进 ONNX = actor(normalizer(obs))"；手转 checkpoint = 仿真正常、真机全废</td></tr>
+            <tr><td>RL → 硬件</td><td>scripts/infer_policy.py</td><td>BAM_MOTOR_NAME / BAM_VIN_RANGE / BAM_KP_FW 必须与训练侧一致</td></tr>
+        </table>
+
+        <h2>4. 7 步打通路线（每步带练习 + 产出物）</h2>
+        <ol>
+            <li><strong>步 1：会用 MuJoCo viewer</strong>（Week 1–2）
+                <br>做：<code>uv sync</code> + <code>uv run list-envs</code>；打开 scene.xml；infer_policy.py 按 WASD/IJKL
+                <br>产出：notes/步1.md 记录鸭子第一次倒下的帧</li>
+            <li><strong>步 2：改一个 reward</strong>（Week 3–4）
+                <br>做：microduck_velocity_env_cfg.py:289 <code>pose.weight</code> 1.0 → 1.5，跑 5-iter smoke
+                <br>看：<code>Episode_Reward/pose</code> 是否 ≤ 0</li>
+            <li><strong>步 3：加一个新传感器</strong>（Week 5–6）
+                <br>做：在 cfg.scene.sensors 元组里加 ContactSensorCfg</li>
+            <li><strong>步 4：用真实伺服校准 BAM</strong>（Week 7–8）
+                <br>有真 XL330：跑 validate_bam_testbench.py，对齐 params/xl330/m6_new.json</li>
+            <li><strong>步 5：训一个简单任务</strong>（Week 9–10）
+                <br>做：5-iter smoke → 4096 env 跑 1000 iter</li>
+            <li><strong>步 6：部署到真机</strong>（Week 11–12）
+                <br>做：export.py → publish → robotctl policy load</li>
+            <li><strong>步 7：端到端调通</strong>（Week 13–16）
+                <br>做：发现"真机会向后倒" → 检查 IMU 偏置（runtime 里设置）</li>
+        </ol>
+
+        <h2>5. 30 / 90 / 180 天计划</h2>
+        <table>
+            <tr><th>时间窗</th><th>目标</th><th>具体任务</th><th>每周时间</th></tr>
+            <tr><td><strong>Day 1–30</strong></td><td>把鸭子跑起来 + 改通 reward</td><td>步 1+2+3</td><td>8 h</td></tr>
+            <tr><td><strong>Day 31–90</strong></td><td>端到端跑通 1 个任务</td><td>步 4+5 + 1000 iter</td><td>12 h</td></tr>
+            <tr><td><strong>Day 91–180</strong></td><td>真机闭环（哪怕是替代品）</td><td>步 6+7 + wiki 总结</td><td>15 h</td></tr>
+        </table>
+        <p><strong>30 天</strong>：wandb 上画出"reward 改动让 track_linear_velocity 涨了 X%"</p>
+        <p><strong>90 天</strong>：从 0 训出"会站"的 episodic 策略</p>
+        <p><strong>180 天</strong>：把训好的策略推上 HF Hub，别人能 <code>robotctl policy load</code> 直接用</p>
+
+        <h2>7. 检验"是否打通"的客观标准</h2>
+        <table>
+            <tr><th>#</th><th>标准</th><th>通过线</th></tr>
+            <tr><td>1</td><td>一句话说清"BAM 把哪些物理量接到了 RL"</td><td>含 电压、电流、摩擦预算、qpos/qvel 4 关键词</td></tr>
+            <tr><td>2</td><td>画 action → ONNX → 真机寄存器 全链路流程图</td><td>≥ 6 节点，每节点带 1 文件引用</td></tr>
+            <tr><td>3</td><td>改一个 reward 后用 wandb 解释曲线变化</td><td>含"主项涨/副项跌/总分涨"三段</td></tr>
+            <tr><td>4</td><td>知道 obs 61D 每一维来自哪个 obs term</td><td>全部对上</td></tr>
+            <tr><td>5</td><td>解释"为什么 IMU 偏置不能在 DR 里随机化"</td><td>引用 AGENTS.md</td></tr>
+        </table>
+    </div>
+</body>
+</html>

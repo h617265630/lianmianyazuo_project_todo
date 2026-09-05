@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>09 机器人项目横向对比 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        h3 { color: #8b5cf6; font-size: 1.1em; margin: 24px 0 12px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>09 · 机器人项目横向对比 — 项目地图册</h1>
+        <div class="meta">面向想"动手玩真机"但不知道买谁的你。2025 年视角、按价位排的开源 / 商业机器人项目地图册。</div>
+
+        <h2>2. 桌面级（< $500）：从拼装到桌面伴侣</h2>
+        <table>
+            <tr><th>项目</th><th>价格</th><th>形态 / DOF</th><th>训练方式</th><th>开源</th><th>学习曲线</th></tr>
+            <tr><td><strong>Microduck</strong></td><td>$399</td><td>双足 14 DOF</td><td>仿真 PPO + ONNX 部署</td><td>Apache 2.0</td><td>中</td></tr>
+            <tr><td>Reachy Mini Lite</td><td>$299</td><td>桌面头 + 旋转躯干，6+1 DOF</td><td>HF Transformers / Python SDK</td><td>Apache 2.0</td><td>低</td></tr>
+            <tr><td>SO-ARM100</td><td>~$100–300（DIY）</td><td>5+5 DOF 机械臂</td><td>LeRobot ACT / DP3 / SARM</td><td>Apache 2.0</td><td>低</td></tr>
+            <tr><td>Poppy Ergo Jr</td><td>~$300–500</td><td>6 DOF 单臂（3D 打印）</td><td>Python + snap!</td><td>GPL v3</td><td>中</td></tr>
+        </table>
+
+        <h3>Microduck（主角）</h3>
+        <ul>
+            <li><strong>URL</strong>：pollen-robotics.com/microduck/ · github.com/pollen-robotics/microduck</li>
+            <li><strong>开源</strong>：软硬件全开源；训练框架用 mjlab（MuJoCo Warp）+ PPO（rsl_rl），策略 50 Hz</li>
+            <li><strong>核心硬件</strong>：14 × Dynamixel XL330 伺服、~25 cm 高、~800 g</li>
+            <li><strong>主要能力</strong>：平地行走、上下坡、头部姿态跟踪、转弯、standup、sit-stand、轮式跪走</li>
+        </ul>
+        <blockquote><strong>Microduck 的"独一份"卖点</strong>：同价位唯一同时具备（a）真实腿足（b）端到端 RL 训练栈（c）社区级 sim2real 流程的项目。</blockquote>
+
+        <h2>3. 教育级（$500–$5k）：科研入门 / 高校实验室</h2>
+        <table>
+            <tr><th>项目</th><th>价格</th><th>形态 / DOF</th><th>训练方式</th></tr>
+            <tr><td>TurtleBot 3 Burger</td><td>~$550</td><td>差速 + 2D LiDAR</td><td>ROS / SLAM / Nav2</td></tr>
+            <tr><td>myCobot 280</td><td>$2k–3.5k</td><td>6 DOF 桌面臂</td><td>ROS / MoveIt / Blockly</td></tr>
+            <tr><td>WidowX AI</td><td>$4.5k–5k</td><td>6 DOF + 1.5 kg</td><td>LeRobot / MuJoCo / Isaac</td></tr>
+            <tr><td>Stanford Pupper</td><td>$600–1k DIY</td><td>12 DOF 四足</td><td>PyBullet sim + 真机</td></tr>
+            <tr><td>Unitree Go2</td><td>$1,600–2,800</td><td>12 DOF 四足</td><td>isaaclab / unitree-sdk</td></tr>
+        </table>
+
+        <h2>4. 入门科研级（$5k–$30k）</h2>
+        <table>
+            <tr><th>项目</th><th>价格</th><th>形态 / DOF</th><th>训练方式</th></tr>
+            <tr><td>Mobile ALOHA</td><td>~$32k 物料</td><td>移动双 6 DOF 臂</td><td>ACT 模仿学习 + Diffusion Policy</td></tr>
+            <tr><td>Franka Panda</td><td>$10k–15k（新）/ $4k–8k（二手）</td><td>7 DOF + 关节力矩</td><td>libfranka + ROS</td></tr>
+            <tr><td>Unitree G1</td><td>$13.5k 起</td><td>23 DOF / EDU 43 DOF</td><td>unitree rl + isaaclab</td></tr>
+            <tr><td>Hello Robot Stretch 2</td><td>$20,950</td><td>移动底盘 + 7 DOF 臂</td><td>Python + ROS 2</td></tr>
+            <tr><td>Reachy 2</td><td>$19,990 起</td><td>双臂躯干 + 头</td><td>mjlab / LeRobot</td></tr>
+        </table>
+
+        <h2>7. 横向对比表（按价位排序）</h2>
+        <table>
+            <tr><th>项目</th><th>价位（USD）</th><th>形态</th><th>DOF</th><th>控制频率</th><th>训练 / 部署栈</th></tr>
+            <tr><td>SO-ARM100</td><td>~$100–300</td><td>双机械臂</td><td>5+5</td><td>100 Hz</td><td>LeRobot ACT / DP3</td></tr>
+            <tr><td><strong>Microduck</strong></td><td><strong>$399</strong></td><td><strong>双足</strong></td><td><strong>14</strong></td><td><strong>50 Hz</strong></td><td><strong>mjlab + PPO + ONNX</strong></td></tr>
+            <tr><td>TurtleBot 3 Burger</td><td>~$550</td><td>差速底盘</td><td>2</td><td>100 Hz</td><td>ROS / SLAM / Nav2</td></tr>
+            <tr><td>Stanford Pupper</td><td>$600–1k</td><td>四足</td><td>12</td><td>200 Hz</td><td>PyBullet + 真机 PD</td></tr>
+            <tr><td>Unitree Go2</td><td>$1,600</td><td>四足</td><td>12</td><td>200 Hz</td><td>isaaclab / SDK</td></tr>
+            <tr><td>Franka Panda（二手）</td><td>$4k–8k</td><td>桌面臂</td><td>7</td><td>1 kHz</td><td>libfranka + ROS</td></tr>
+            <tr><td>Unitree G1</td><td>$13.5k–20k</td><td>人形</td><td>23–43</td><td>200 Hz</td><td>unitree_sdk + isaaclab</td></tr>
+            <tr><td>Unitree H1</td><td>~$90k</td><td>人形</td><td>19</td><td>200 Hz</td><td>SDK + isaaclab</td></tr>
+        </table>
+
+        <h2>9. Microduck 在生态中的位置</h2>
+        <blockquote>
+            把上面这张表当成"价格 × 形态"二维地图：
+            <ul>
+                <li><strong>横轴（价位）</strong>：仿真（$0） → 桌面臂（$100） → 桌面伴 / 桌宠（$300） → <strong>Microduck（$399，唯一有腿）</strong> → 桌面全栈（$1k–5k） → 科研级（$5k–30k） → 商业级（$30k+）</li>
+                <li><strong>纵轴（能力 / 部署门槛）</strong>：纯仿真 → 桌面玩具 → <strong>真实 leg + 端到端 + sim2real</strong>（Microduck 所在层） → 工业级</li>
+            </ul>
+        </blockquote>
+        <p><strong>结论：Microduck 是"RL + 腿足 + 端到端"路径上能买到的最低门槛实物。</strong></p>
+        <ul>
+            <li>比它便宜的：仿真（MuJoCo / Isaac Lab，$0）；桌面臂 SO-ARM100（无腿，$100）</li>
+            <li>比它便宜的腿足实物：几乎没有</li>
+            <li>同价位唯一对手：Reachy Mini（$299/$449）但它是无腿桌面头 + 对话路线</li>
+        </ul>
+
+        <h2>10. 推荐学习组合（按路径）</h2>
+        <h3>路径 A：全栈通用路线（最广覆盖）</h3>
+        <ol>
+            <li><strong>Microduck</strong>（$399）—— 学 RL + sim2real + 双足</li>
+            <li><strong>Unitree G1</strong>（$13.5k+）—— 学全尺寸人形 + 社区 + 量产</li>
+            <li>（可选）<strong>Reachy 2</strong>（$19,990+）—— 学双臂 + embodied AI</li>
+        </ol>
+        <h3>路径 B：操作专项路线（机械臂方向）</h3>
+        <ol>
+            <li><strong>SO-ARM100 + LeRobot</strong>（$200）—— 学模仿学习 + VLA</li>
+            <li><strong>ALOHA / Mobile ALOHA</strong>（$20k–32k）—— 学双臂操作 + 公开数据</li>
+            <li><strong>Franka Panda（二手）</strong>（$4k–8k）—— 学力矩环 + ROS</li>
+        </ol>
+        <h3>路径 C：学术控制路线（控制 / 强化学习方向）</h3>
+        <ol>
+            <li><strong>Microduck</strong>（$399）—— 学 sim2real + RL</li>
+            <li><strong>Open Dynamic Robot Initiative Solo</strong>（$15k–30k）—— 力学建模 + 力矩闭环</li>
+            <li><strong>MIT Mini Cheetah（自复刻）</strong>（$10k+）—— MPC + 高机动性</li>
+        </ol>
+
+        <h2>11. 选购注意事项（容易踩的坑）</h2>
+        <ol>
+            <li><strong>价格 ≠ 能力</strong>：Trossen WidowX AI $4.5k 在 LeRobot 上比某些 $15k 桌面臂更易用</li>
+            <li><strong>开源 ≠ 免费</strong>：Microduck、Reachy 2、ALOHA 硬件 CAD 全开源，但 BOM / 训练数据 / 部署栈仍要付费</li>
+            <li><strong>控制频率是分水岭</strong>：500 Hz 以下桌面级跑 RL 微调很容易；1 kHz 力矩环以上才适合高动态接触任务</li>
+            <li><strong>sim2real 不等于"训练一次就行"</strong>：Microduck 同价位优势在于训练栈与硬件一体</li>
+        </ol>
+    </div>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10 从零造一台自己的机器人 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        h3 { color: #8b5cf6; font-size: 1.1em; margin: 24px 0 12px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>10 · 从零造一台自己的机器人——一份"创业指南"式的工程化路径</h1>
+        <div class="meta">面向想从仿真走到真机的工程师 / 研究员 / 学生。</div>
+
+        <h2>0. 总原则</h2>
+        <table>
+            <tr><th>原则</th><th>解释</th><th>为什么</th></tr>
+            <tr><td>先仿真，再半实物，最后真机</td><td>第一版策略必须在 sim 里跑出能看的录像</td><td>仿真失败 0 元，真机失败 200 元+受伤风险</td></tr>
+            <tr><td>从轮式到腿式</td><td>差速驱动底盘 + 简单 RL → 桌面腿式 → 自研双足</td><td>失败半径递增，先把 RL/部署链路打通</td></tr>
+            <tr><td>复用现成 BOM</td><td>Stanford Pupper / SO-ARM100 / Solo12 BOM 全公开</td><td>自研 = 集成，不是从零画 PCB</td></tr>
+            <tr><td>训推同栈</td><td>训练用 mjlab + PPO，部署用 ONNX Runtime</td><td>不同栈必崩</td></tr>
+        </table>
+
+        <h2>阶段 0：纯仿真（$0，1–2 周）</h2>
+        <p><strong>目标</strong>：把 RL 链路跑通——能训一个在仿真里"会走"的策略，不碰任何硬件。</p>
+        <pre><code>git clone https://github.com/pollen-robotics/microduck_rl
+cd microduck_rl
+uv sync
+uv run list-envs
+
+# smoke test
+uv run train Microduck-Velocity-Flat \
+   --env.scene.num-envs 64 \
+   --agent.max_iterations 5
+</code></pre>
+
+        <h2>阶段 1：现成底盘 + Arduino / ESP32（$30–550，2–4 周）</h2>
+        <p><strong>目标</strong>：把仿真训的导航 / 避障策略部署到带轮子的真实机器人上，体验 sim2real 的第一道墙。</p>
+        <table>
+            <tr><th>项目</th><th>价格</th><th>主控</th><th>上手难度</th></tr>
+            <tr><td>Balena Finch</td><td>~$80</td><td>Raspberry Pi Pico</td><td>★☆☆</td></tr>
+            <tr><td>ELEGOO Smart Car V4</td><td>$50–70</td><td>Arduino Uno</td><td>★☆☆</td></tr>
+            <tr><td>JetBot (Waveshare)</td><td>$395–464</td><td>Jetson Nano 4GB</td><td>★★☆</td></tr>
+            <tr><td>TurtleBot 3 Burger</td><td>$549</td><td>Raspberry Pi 4 + OpenCR</td><td>★★★</td></tr>
+        </table>
+
+        <h2>阶段 2：桌面机械臂（$100–8000，4–8 周）</h2>
+        <p><strong>目标</strong>：把 RL 用在更高维动作空间（6–7 DOF），完成 reach / pick-and-place。</p>
+        <table>
+            <tr><th>项目</th><th>价格</th><th>DOF</th><th>备注</th></tr>
+            <tr><td><strong>SO-ARM100 (LeRobot)</strong></td><td>$100–300</td><td>5 + 1 gripper</td><td><strong>最推荐入门</strong></td></tr>
+            <tr><td>myCobot 280 M5Stack</td><td>$649</td><td>6</td><td>280 mm 半径，250 g 负载</td></tr>
+            <tr><td>Trossen WidowX 250</td><td>~$500</td><td>6</td><td>ROS 原生，X-Series 舵机</td></tr>
+        </table>
+
+        <h2>阶段 3：桌面腿足机器人（$400–2000，8–16 周）</h2>
+        <p><strong>目标</strong>：进腿足域。仿照 microduck 训策略，但用开源 BOM 自购硬件。</p>
+        <table>
+            <tr><th>项目</th><th>价格</th><th>DOF</th><th>备注</th></tr>
+            <tr><td>Stanford Pupper / Mini Pupper</td><td>$400–600 DIY</td><td>12</td><td>12× MG996R + PCA9685 + Pi 4</td></tr>
+            <tr><td>Open-Dynamic-Robot-Initiative Solo12</td><td>~$3000（DIY）</td><td>12</td><td>Max Planck 开源，研究级</td></tr>
+            <tr><td><strong>Microduck 自购</strong></td><td>$399</td><td>14</td><td>你正在读的就是它的训练栈</td></tr>
+        </table>
+
+        <h2>阶段 4：自研（$2000+，16 周+）</h2>
+        <p><strong>目标</strong>：仿照 microduck，从 BOM 开始设计自己的双足 / 四足机器人。全栈都要做：机械 + PCB + 固件 + 训练栈迁移。</p>
+
+        <h3>计算单元选型</h3>
+        <table>
+            <tr><th>选型</th><th>价格</th><th>AI 算力</th><th>功耗</th></tr>
+            <tr><td>Raspberry Pi 4 (4GB)</td><td>$55</td><td>CPU only</td><td>7W</td></tr>
+            <tr><td>Jetson Orin Nano 8GB</td><td>$199</td><td>40 TOPS</td><td>15–25W</td></tr>
+            <tr><td>RK3566 / RK3588 板</td><td>$60–150</td><td>1–6 TOPS</td><td>5–12W</td></tr>
+        </table>
+
+        <h3>伺服选型</h3>
+        <table>
+            <tr><th>型号</th><th>电压</th><th>扭矩</th><th>通信</th><th>单价</th></tr>
+            <tr><td><strong>Dynamixel XL330-M288-T</strong></td><td>5V</td><td>0.93 N·m</td><td>TTL half-duplex</td><td>$25–45</td></tr>
+            <tr><td>STS3215 (Feetech)</td><td>12V</td><td>30 kg·cm</td><td>TTL</td><td>$25–35</td></tr>
+            <tr><td>LX-16A (LewanSoul)</td><td>6–8.4V</td><td>17 kg·cm</td><td>TTL</td><td>$20</td></tr>
+        </table>
+
+        <h3>传感器</h3>
+        <table>
+            <tr><th>传感器</th><th>型号</th><th>价格</th><th>用途</th></tr>
+            <tr><td>IMU 6 轴</td><td>BMI270</td><td>~$3.5</td><td>平衡 / 姿态，最低必备</td></tr>
+            <tr><td>ToF 测距</td><td>VL53L5CX (8×8)</td><td>$6</td><td>地形自适应 / 防跌落</td></tr>
+            <tr><td>摄像头</td><td>IMX219 160° FOV</td><td>$30</td><td>Jetson 标配</td></tr>
+        </table>
+
+        <h2>5. 阶段 5：产品化（如果你想做出货，$10k+，24 周+）</h2>
+        <ul>
+            <li><strong>机械工程化</strong>：外观 CMF 设计、跌落 / IP 等级、可制造性（DFM）</li>
+            <li><strong>软件工程化</strong>：OTA（systemd + signed firmware）、Daemon、App</li>
+            <li><strong>测试与认证</strong>：FCC / CE / 蓝牙认证（~$3k–10k）、EMC 测试、跌落 / 振动</li>
+        </ul>
+
+        <h2>9. 常见失败模式 + 对策</h2>
+        <table>
+            <tr><th>失败模式</th><th>症状</th><th>对策</th></tr>
+            <tr><td>硬件到不了仿真精度</td><td>仿真走得好，真机摔跤</td><td>DR 必须覆盖质量 / 摩擦 / 延迟 / 间隙</td></tr>
+            <tr><td>训练时长不够</td><td>跑了 200 iter 没收敛就放弃</td><td>简单 episodic ≈ 1000 iter；gaits ≈ 4000–6000 iter</td></tr>
+            <tr><td>通信延迟失控</td><td>50 Hz 控制却用了 30 ms ROS2</td><td>仿真里直接训 latency-DR；真机走 UART + 共享内存</td></tr>
+            <tr><td>电池续航不足</td><td>5 分钟就掉链</td><td>先测满载电流，再算 mAh / 平均电流 × 0.7</td></tr>
+            <tr><td>ONNX 不一致</td><td>仿真精度 OK，ONNX 跑偏</td><td>normalizer 必须 baked-in</td></tr>
+        </table>
+
+        <h2>10. 写在最后</h2>
+        <blockquote>
+            从仿真到出货，没有"加速键"。microduck 团队花了一年从 mjlab 的模板训出第一条能走的策略，再花半年处理 sim2real 的每一道墙。
+            <br><br>
+            <strong>下一步</strong>：克隆 microduck_rl，跑 <code>uv run train Microduck-Velocity-Flat --env.scene.num-envs 64 --agent.max_iterations 5</code>。看到"Episode_Reward"在 wandb 里爬升时，就该去买第一台硬件了。
+        </blockquote>
+    </div>
+</body>
+</html>

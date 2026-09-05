@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02 多动作联合训练 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        h3 { color: #8b5cf6; font-size: 1.1em; margin: 24px 0 12px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>02 · 多动作联合训练 —— 怎么让鸭子会很多事</h1>
+        <div class="meta">核心答案：每个动作是一个独立的 ONNX 策略，运行时由 daemon 按 slot 切换。</div>
+
+        <h2>1. 先纠正一个直觉偏差</h2>
+        <p>新人最容易问的问题：</p>
+        <blockquote>能不能训一个大网络，什么都会？</blockquote>
+        <p>技术上可以（multi-task / hierarchical RL / skill primitives），但<strong>工程上当前不是这么做</strong>。原因是：</p>
+        <ol>
+            <li><strong>训练变慢很多</strong>——多个任务共享表征会互相干扰（task interference）</li>
+            <li><strong>sim2real 难度爆炸</strong>——失败模式叠加，调试极其痛苦</li>
+            <li><strong>算力不划算</strong>——鸭子只有 RK3566（4×A55），单策略 50 Hz 推理已经吃紧</li>
+        </ol>
+        <p>Pollen Robotics 选择的工程方案：<strong>每个动作训一个 ONNX，运行时做切换</strong>。这就是为什么 <code>microduck</code> 机器人出厂带 7 个独立策略。</p>
+
+        <h2>2. 官方动作 / 槽位表</h2>
+        <p>来自 <code>src/mjlab_microduck/publish/manifest.py</code> 的 <code>SLOTS</code> 常量：</p>
+        <pre><code>SLOTS = ("walk", "stand", "sitstand", "ground_pick",
+         "kick_left", "kick_right", "roulade")
+</code></pre>
+        <table>
+            <tr><th>Slot</th><th>含义</th><th>任务 ID</th><th>kind</th></tr>
+            <tr><td><code>walk</code></td><td>走路（默认）</td><td><code>Mjlab-Velocity-Flat-MicroDuck</code></td><td>perpetual</td></tr>
+            <tr><td><code>stand</code></td><td>站立</td><td>（专用的站立任务）</td><td>perpetual</td></tr>
+            <tr><td><code>sitstand</code></td><td>坐 ↔ 站（按命令切换）</td><td><code>Mjlab-SitStand-Flat-MicroDuck</code></td><td>perpetual</td></tr>
+            <tr><td><code>ground_pick</code></td><td>用嘴捡东西</td><td><code>Mjlab-GroundPick-Flat-MicroDuck</code></td><td>episodic</td></tr>
+            <tr><td><code>kick_left</code></td><td>左脚踢球</td><td><code>Mjlab-BallKick-Flat-MicroDuck</code></td><td>episodic</td></tr>
+            <tr><td><code>kick_right</code></td><td>右脚踢球</td><td><code>Mjlab-BallKick-Flat-MicroDuck</code></td><td>episodic</td></tr>
+            <tr><td><code>roulade</code></td><td>前滚翻</td><td><code>Mjlab-Roulade-Flat-MicroDuck</code></td><td>episodic</td></tr>
+        </table>
+        <p>每个 slot 由独立的 PPO 训练得到，权重是一个 ~MB 级别的 ONNX。</p>
+
+        <h2>3. kind 字段：episodic vs perpetual</h2>
+        <h3>perpetual（永久性的）</h3>
+        <ul>
+            <li><strong>没有终止时间</strong>，一直跑直到 daemon 让它停</li>
+            <li>走路 / 站立 / sitstand 都是这种</li>
+            <li>daemon 把它们<strong>装到 slot 里</strong></li>
+        </ul>
+        <h3>episodic（一次性的）</h3>
+        <ul>
+            <li><strong>有时间限制</strong> <code>duration_s</code>，到时间自己停</li>
+            <li>踢球 / 滚翻 / 捡东西都是这种——它们有起手式 + 收势，做完必须让位</li>
+            <li>daemon 用 <code>robotctl robot do &lt;name&gt;</code> 触发</li>
+        </ul>
+        <blockquote>一句话区分：<strong>走路是 perpetual，技能是 episodic</strong>。</blockquote>
+
+        <h2>4. 多个 ONNX 在运行时是怎么"联合"起来的</h2>
+        <p>鸭子不是"一个大脑"，而是"一窝专家 + 一个调度员"。</p>
+        <pre><code>┌─────────────────────────────────────────────────────────────┐
+│  robotd (Rust daemon, 50 Hz)                                  │
+│  ┌──────────┐    policy_id    ┌──────────────────────────┐   │
+│  │ Scheduler │ ──────────────▶ │ 当前激活的 ONNX 推理     │   │
+│  │ (state    │                 │ (单线程 onnxruntime)    │   │
+│  │  machine) │ ◀──────────────  │                         │   │
+│  └──────────┘    ctrl[14]     └──────────────────────────┘   │
+│       ▲                                  ▲                   │
+│       │ gamepad / NFC / voice / app      │ obs[61]           │
+└───────┼──────────────────────────────────┼───────────────────┘
+</code></pre>
+        <p><strong>几个关键事实</strong>：</p>
+        <ol>
+            <li><strong>同时只跑一个 ONNX</strong>——切换是瞬时的，不是 blend</li>
+            <li><strong>切换走"先到位再切"的协议</strong>——上一个策略把姿态收完，下一个策略从站立姿态接过去</li>
+            <li><strong>观测是 61D 共享的</strong>——这是 manifest 强制要求的硬约束</li>
+            <li><strong>切换由 daemon 决定，不是策略之间协调</strong>——简单可靠</li>
+        </ol>
+
+        <h2>5. 自己加一个新动作的完整流程</h2>
+        <p>假设你想加一个"鞠躬"动作。</p>
+        <h3>5.1 写任务配置</h3>
+        <p>在 <code>src/mjlab_microduck/tasks/</code> 加 <code>microduck_bow_env_cfg.py</code></p>
+        <h3>5.2 注册</h3>
+        <p>在 <code>tasks/__init__.py</code> 加一行 <code>register_mjlab_task(...)</code></p>
+        <h3>5.3 训练</h3>
+        <pre><code>uv run train Mjlab-Bow-Flat-MicroDuck --env.scene.num-envs 4096</code></pre>
+        <h3>5.4 发布</h3>
+        <pre><code>uv run publish --task Mjlab-Bow-Flat-MicroDuck \
+    --wandb-run-path <...> \
+    --repo <you>/microduck-bow \
+    --kind episodic --duration-s 3.0</code></pre>
+        <h3>5.5 真机加载</h3>
+        <pre><code>sudo robotctl policy add bow <you>/microduck-bow
+robotctl robot do bow   # 触发鞠躬</code></pre>
+        <p>不需要改 daemon 代码——manifest 描述了一切。</p>
+
+        <h2>8. 一句话总结</h2>
+        <blockquote>
+            <strong>鸭子的"多动作"是 N 个独立 ONNX + 一个 daemon 状态机。</strong>
+            训练时一次训一个，发布时各发各的，运行时按 slot 切换。
+            想加新动作 → 训一个新任务 → 发一个新 ONNX → 装到新 slot。
+        </blockquote>
+    </div>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "name": "lianmian-yazuo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "连绵雅座 — 个人项目与资料管理工作台",
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c blue,green \"vite\" \"tsx watch server/index.ts\"",
+    "dev:web": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "typecheck": "vue-tsc --noEmit && tsc -p server/tsconfig.json --noEmit",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx server/db/seed.ts",
+    "db:setup": "drizzle-kit migrate && tsx server/db/seed.ts"
+  },
+  "dependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "^3.1.0",
+    "@tailwindcss/vite": "^4.1.17",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-vue-next": "^0.554.0",
+    "pg": "^8.23.0",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.24",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.10.0",
+    "@types/pg": "^8.23.1",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/tsconfig": "^0.8.1",
+    "autoprefixer": "^10.4.22",
+    "concurrently": "^10.0.5",
+    "drizzle-kit": "^0.31.10",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
+    "tsx": "^4.23.13",
+    "typescript": "~5.9.3",
+    "vite": "^5.0.0",
+    "vue-tsc": "^3.1.3"
+  }
+}

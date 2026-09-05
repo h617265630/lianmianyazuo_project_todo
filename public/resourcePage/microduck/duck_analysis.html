@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>duck_分析 — Microduck 项目学习笔记本</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .toc-link.active { color: #f59e0b; font-weight: 600; }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+    code { font-size: 0.875em; }
+    h1 code, h2 code, h3 code { background: transparent; padding: 0; }
+    h1 { font-size: 2.25rem; font-weight: 700; }
+    h2 { font-size: 1.5rem; font-weight: 600; margin-top: 2rem; }
+    h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1.5rem; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 text-gray-900 py-12 px-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-5xl">🦆</span>
+        <div>
+          <h1 class="text-white drop-shadow-lg">duck_分析</h1>
+          <p class="text-amber-100 text-lg mt-1">Microduck 项目学习笔记本</p>
+        </div>
+      </div>
+      <p class="text-amber-50 max-w-2xl">
+        这是一个<strong>边做边学</strong>的目录：你每学到一个点就追加一条笔记，每跑通一个实验就贴一张图或一段日志。
+        <strong>不需要写得很整齐，先记下来比写得好更重要。</strong>
+      </p>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto flex gap-8 px-6 py-8">
+    <!-- Sidebar -->
+    <aside class="w-64 flex-shrink-0">
+      <nav class="sticky top-8 space-y-1">
+        <p class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-3 px-3">目录</p>
+        <a href="#readme" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">README</a>
+        <a href="#01" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">01 训练入门</a>
+        <a href="#02" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">02 多动作联合训练</a>
+        <a href="#03" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">03 让鸭子更像活物</a>
+        <a href="#04" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">04 人机交互</a>
+        <a href="#05" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">05 硬件实现</a>
+        <a href="#06" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">06 学习路线</a>
+        <a href="#07" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">07 打通软硬件与RL</a>
+        <a href="#08" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">08 如何阅读这个项目</a>
+        <a href="#09" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">09 机器人项目横向对比</a>
+        <a href="#10" class="toc-link block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-amber-400 transition">10 从零造一台自己的机器人</a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 min-w-0">
+      <!-- README -->
+      <section id="readme" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <h2 class="text-2xl font-bold text-amber-400 mb-6">README — 项目介绍</h2>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <p>Microduck 是 Pollen Robotics / Hugging Face 推出的一台 25 cm 高、约 800 g 的开源双足机器人，全身 14 个 Dynamixel XL330 智能伺服。本仓库 <code>microduck_rl/</code> 是它的官方 RL 训练栈（mjlab + MuJoCo Warp + PPO），真机运行时在 <code>pollen-robotics/microduck</code>。</p>
+            <blockquote class="border-l-4 border-amber-500 pl-4 italic text-gray-400">
+              一台<strong class="text-white">会感知（IMU + 摄像头 + ToF + 触觉）、会思考（ONNX 策略网络 50 Hz）、会执行（14 个位置伺服 + 一个能"抓"的鸟喙）</strong>的双足机器人，全部跑在一个 RK3566（4×A55）上，整机含电池 800 g，续航约 1 小时，零售价 $399。
+            </blockquote>
+            <h3 class="text-lg font-semibold text-white">目录结构</h3>
+            <pre class="bg-gray-800 rounded-xl p-4 text-sm overflow-x-auto">duck_分析/
+├── README.md                 ← 你正在读的
+├── 01_训练入门.md             ← 怎么跑起来一个会走路的鸭子
+├── 02_多动作联合训练.md        ← 怎么让鸭子同时会坐、站、踢、走
+├── 03_让鸭子更像活物.md        ← 闲置动作、个性、行为混合、随机性
+├── 04_人机交互.md             ← 怎么"指挥"一只鸭子
+├── 05_硬件实现.md             ← 主板、伺服、电池、传感器、PCB
+├── 06_学习路线.md             ← 想深入时的书单与项目
+├── 07_打通软硬件与RL的任督二脉.md ← 硬件+软件+RL三层合在一起
+├── 08_如何阅读这个项目.md       ← 4周阅读计划
+├── 09_机器人项目横向对比.md     ← Microduck vs Unitree/Solo/ALOHA等
+├── 10_从零造一台自己的机器人.md  ← 5阶段造机指南
+├── notes/                    ← 随手笔记
+└── figures/                  ← 截图、wandb图、错误信息</pre>
+            <h3 class="text-lg font-semibold text-white">阅读顺序建议</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">你的目标</th><th class="py-2">先读</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td>立刻看到鸭子</td><td class="text-amber-400">01_训练入门.md 第1-2节</td></tr>
+                  <tr class="border-b border-gray-800"><td>自己训一个会走/站/踢的策略</td><td class="text-amber-400">01_训练入门.md 第3节</td></tr>
+                  <tr class="border-b border-gray-800"><td>理解7个预训练动作编排</td><td class="text-amber-400">02_多动作联合训练.md</td></tr>
+                  <tr class="border-b border-gray-800"><td>让鸭子有个性</td><td class="text-amber-400">03_让鸭子更像活物.md</td></tr>
+                  <tr class="border-b border-gray-800"><td>用游戏手柄/NFC/语音控制</td><td class="text-amber-400">04_人机交互.md</td></tr>
+                  <tr class="border-b border-gray-800"><td>搞懂硬件、做自己的微缩机器人</td><td class="text-amber-400">05+06_硬件实现+学习路线.md</td></tr>
+                  <tr class="border-b border-gray-800"><td>打通软硬件+RL三层</td><td class="text-amber-400">07_打通软硬件与RL的任督二脉.md</td></tr>
+                  <tr class="border-b border-gray-800"><td>系统读完microduck_rl源码</td><td class="text-amber-400">08_如何阅读这个项目.md</td></tr>
+                  <tr class="border-b border-gray-800"><td>横向对比其他机器人项目</td><td class="text-amber-400">09_机器人项目横向对比.md</td></tr>
+                  <tr><td>自己造一台机器人</td><td class="text-amber-400">10_从零造一台自己的机器人.md</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 01 -->
+      <section id="01" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">01</span>
+            <h2 class="text-2xl font-bold text-amber-400">训练入门 — 把鸭子跑起来</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <p class="text-lg">目标：搞清楚<strong class="text-white">训练一次策略到底在干嘛</strong>，以及14个伺服怎么从权重变成动作。</p>
+
+            <h3 class="text-lg font-semibold text-white border-t border-gray-700 pt-4">最小观看流程（不训练）</h3>
+            <pre class="bg-gray-800 rounded-xl p-4 text-sm"><code># 假设你已经有 out.onnx（怎么来见第3节）
+uv run scripts/infer_policy.py --walking out.onnx</code></pre>
+            <p>会弹出一个Python写的MuJoCo viewer，鸭子按策略运行（按WASD/IJKL控制前进/转向/头部位姿）。</p>
+
+            <h3 class="text-lg font-semibold text-white">一次完整训练在做什么</h3>
+            <div class="bg-gray-800 rounded-xl p-4 text-sm font-mono">
+              <p class="text-gray-400">MuJoCo Warp (mjlab) · 4096个并行机器人</p>
+              <p class="text-gray-500 my-2">物理仿真50Hz → 14个XL330 BAM电机模型 → 接触+摩擦</p>
+              <p class="text-gray-400">obs[61] → PPO策略网络 → wandb记录reward/loss/视频</p>
+              <p class="text-amber-400 mt-2">每一秒：obs→action→step→reward→PPO更新</p>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">关键命令</h3>
+            <pre class="bg-gray-800 rounded-xl p-4 text-sm"><code># 列出所有可用任务
+uv run list-envs
+
+# 烟雾测试：64 env × 5 iter，10分钟能跑完
+uv run train Mjlab-Velocity-Flat-MicroDuck \
+    --env.scene.num-envs 64 --agent.max_iterations 5
+
+# 正式训练（需要GPU）
+uv run train Mjlab-Velocity-Flat-MicroDuck --env.scene.num-envs 4096</code></pre>
+
+            <h3 class="text-lg font-semibold text-white">"任务"到底是什么</h3>
+            <p>仓库里每个<code>microduck_*.py</code>都是一个<strong class="text-amber-400">任务</strong>（env配置）。任务 = 机器人 + 场景 + 观测 + 奖励 + 终止条件 + 域随机化的组合。</p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">任务ID</th><th class="py-2">功能</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td><code>Mjlab-Velocity-Flat-MicroDuck</code></td><td>速度指令跟踪（走路，最基础）</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>Mjlab-Velocity-Rough-MicroDuck</code></td><td>同上，地形是起伏的</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>Mjlab-StandUp-Flat-MicroDuck</code></td><td>摔倒后站起来</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>Mjlab-SitStand-Flat-MicroDuck</code></td><td>坐↔立切换</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>Mjlab-BallKick-Flat-MicroDuck</code></td><td>踢球</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>Mjlab-Roulade-Flat-MicroDuck</code></td><td>前滚翻</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 -->
+      <section id="02" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">02</span>
+            <h2 class="text-2xl font-bold text-amber-400">多动作联合训练 — 让鸭子会很多事</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <blockquote class="border-l-4 border-amber-500 pl-4 italic text-gray-400">
+              每个动作是一个<strong class="text-white">独立的ONNX策略</strong>，运行时由daemon按slot切换。这不是"一个网络搞定一切"，而是"多个专家，编排层做调度"。
+            </blockquote>
+
+            <h3 class="text-lg font-semibold text-white">官方动作/槽位表</h3>
+            <pre class="bg-gray-800 rounded-xl p-4 text-sm"><code>SLOTS = ("walk", "stand", "sitstand", "ground_pick", "kick_left", "kick_right", "roulade")</code></pre>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">Slot</th><th class="py-2">含义</th><th class="py-2">类型</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td><code>walk</code></td><td>走路（默认）</td><td class="text-green-400">perpetual</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>stand</code></td><td>站立</td><td class="text-green-400">perpetual</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>sitstand</code></td><td>坐↔站</td><td class="text-green-400">perpetual</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>ground_pick</code></td><td>用嘴捡东西</td><td class="text-purple-400">episodic</td></tr>
+                  <tr class="border-b border-gray-800"><td><code>kick_left/right</code></td><td>踢球</td><td class="text-purple-400">episodic</td></tr>
+                  <tr><td><code>roulade</code></td><td>前滚翻</td><td class="text-purple-400">episodic</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-sm text-gray-500 mt-2">perpetual = 永久性的，无终止时间；episodic = 一次性的，有duration_s限制</p>
+
+            <h3 class="text-lg font-semibold text-white">运行时联合原理</h3>
+            <div class="bg-gray-800 rounded-xl p-4 text-sm">
+              <p class="text-gray-400 mb-2">robotd (Rust daemon, 50 Hz)</p>
+              <p class="text-amber-400">Scheduler → 当前激活的ONNX推理（单线程onnxruntime）</p>
+              <p class="text-gray-500 mt-2">同时只跑一个ONNX，切换是瞬时的，不是blend</p>
+              <p class="text-gray-500">观测是61D共享的，切换由daemon决定</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 -->
+      <section id="03" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">03</span>
+            <h2 class="text-2xl font-bold text-amber-400">让鸭子更像活物 — 从"执行命令"到"有生命感"</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">行为分层金字塔</h3>
+            <div class="bg-gray-800 rounded-xl p-6 text-sm">
+              <div class="text-center">
+                <span class="bg-amber-600 text-white px-4 py-2 rounded-t-lg">第3层：性格/个性（idle动作、声音、LED节奏）</span>
+              </div>
+              <div class="text-center mt-2"><span class="bg-gray-700 text-gray-300 px-6 py-2">第2层：反应/触发（被吓到→颤一下）</span></div>
+              <div class="text-center mt-2"><span class="bg-gray-600 text-gray-300 px-8 py-2 rounded-b-lg">第1层：技能/任务（走、踢、鞠躬）</span></div>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">让鸭子"活"的5个具体动作（按ROI排序）</h3>
+            <div class="space-y-3">
+              <div class="flex items-center gap-4 p-4 bg-gray-800 rounded-xl">
+                <span class="text-2xl">🥇</span>
+                <div><strong class="text-amber-400">LED颜色映射状态</strong><p class="text-sm text-gray-400">一眼能看出来是活的</p></div>
+              </div>
+              <div class="flex items-center gap-4 p-4 bg-gray-800 rounded-xl">
+                <span class="text-2xl">🥈</span>
+                <div><strong class="text-amber-400">闲置时head微动 + 偶尔踱步</strong><p class="text-sm text-gray-400">不会僵</p></div>
+              </div>
+              <div class="flex items-center gap-4 p-4 bg-gray-800 rounded-xl">
+                <span class="text-2xl">🥉</span>
+                <div><strong class="text-amber-400">摔倒音效 + 挣扎几下再躺</strong><p class="text-sm text-gray-400">"失败"也是表达</p></div>
+              </div>
+              <div class="flex items-center gap-4 p-4 bg-gray-800 rounded-xl">
+                <span class="text-xl">4</span>
+                <div><strong class="text-amber-400">触碰/声音触发反应</strong><p class="text-sm text-gray-400">互动感</p></div>
+              </div>
+              <div class="flex items-center gap-4 p-4 bg-gray-800 rounded-xl">
+                <span class="text-xl">5</span>
+                <div><strong class="text-amber-400">多策略混合编排 + 个体微调</strong><p class="text-sm text-gray-400">个性</p></div>
+              </div>
+            </div>
+            <p class="text-sm text-gray-500">前3项<strong>不需要重新训RL</strong>，纯靠daemon编排层就能做出来。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 -->
+      <section id="04" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">04</span>
+            <h2 class="text-2xl font-bold text-amber-400">人机交互 — 怎么"指挥"一只鸭子</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">5种交互通道总览</h3>
+            <div class="bg-gray-800 rounded-xl p-4 text-sm">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="flex items-center gap-2"><span class="text-xl">🎮</span><span>gamepad → robotd/padd</span></div>
+                <div class="flex items-center gap-2"><span class="text-xl">🏷️</span><span>NFC → robotd/nfc</span></div>
+                <div class="flex items-center gap-2"><span class="text-xl">🎤</span><span>mic → wakeword + ASR</span></div>
+                <div class="flex items-center gap-2"><span class="text-xl">💡</span><span>LED ← robotd</span></div>
+                <div class="flex items-center gap-2"><span class="text-xl">🔊</span><span>speaker ← robotd</span></div>
+              </div>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">游戏手柄按键（推测）</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">按键</th><th class="py-2">功能</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td>左摇杆</td><td>速度指令（vx, vy）→ walk slot</td></tr>
+                  <tr class="border-b border-gray-800"><td>右摇杆</td><td>旋转 + 头部 yaw/pitch</td></tr>
+                  <tr class="border-b border-gray-800"><td>A/B/X/Y</td><td>触发episodic</td></tr>
+                  <tr class="border-b border-gray-800"><td>RB/LB</td><td>切换walk↔stand</td></tr>
+                  <tr><td>方向键+R3</td><td>触发roulade</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">机器人交互设计原则</h3>
+            <ol class="list-decimal list-inside space-y-2 text-gray-300">
+              <li>多通道冗余：同一意图用多种方式都能触发</li>
+              <li>状态可见：LED/声音让用户知道"它在干嘛"</li>
+              <li>永远可中断：用户随时按停能安全停下</li>
+              <li>失败可读：摔倒 = 红色LED + 挣扎动作</li>
+              <li>每条交互都有反馈：哪怕只是"嘎"一声</li>
+              <li>不要装作很聪明：听不懂就"歪头"</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 -->
+      <section id="05" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">05</span>
+            <h2 class="text-2xl font-bold text-amber-400">硬件实现 — 把每一颗螺丝看清楚</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">整机参数（已确认）</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">项目</th><th class="py-2">值</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td>身高/宽度</td><td>25 cm / 14 cm</td></tr>
+                  <tr class="border-b border-gray-800"><td>体重</td><td>780–800 g</td></tr>
+                  <tr class="border-b border-gray-800"><td>伺服数</td><td>14 + 1鸟喙 = 15</td></tr>
+                  <tr class="border-b border-gray-800"><td>电池</td><td>NP-F550（2600mAh）</td></tr>
+                  <tr class="border-b border-gray-800"><td>续航</td><td>~1h持续运行</td></tr>
+                  <tr class="border-b border-gray-800"><td>售价</td><td class="text-amber-400 font-semibold">$399预购</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">主板/计算单元</h3>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-gray-500">SoC</span><p class="font-mono text-amber-400">Rockchip RK3566</p><p class="text-xs text-gray-500">4× Cortex-A55 @ 1.8 GHz</p></div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-gray-500">RAM/存储</span><p class="font-mono text-amber-400">1GB LPDDR4 / 32GB eMMC</p></div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-gray-500">NPU</span><p class="font-mono text-amber-400">0.8 TOPS</p><p class="text-xs text-gray-500">留给未来视觉/语音</p></div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-gray-500">控制频率</span><p class="font-mono text-amber-400 text-green-400">50 Hz</p></div>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">伺服系统 — Dynamixel XL330-M288-T</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">参数</th><th class="py-2">值</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td>电机</td><td>空心杯有刷DC</td></tr>
+                  <tr class="border-b border-gray-800"><td>编码器</td><td>12-bit磁编（4096分辨率）</td></tr>
+                  <tr class="border-b border-gray-800"><td>通信</td><td>TTL半双工总线（daisy chain）</td></tr>
+                  <tr class="border-b border-gray-800"><td>力矩</td><td>~0.42–0.6 N·m</td></tr>
+                  <tr><td>协议</td><td>Dynamixel Protocol 2.0</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">14个关节映射</h3>
+            <pre class="bg-gray-800 rounded-xl p-4 text-sm"><code>0  left_hip_yaw      ┐
+1  left_hip_roll      │
+2  left_hip_pitch     │ 左腿5个
+3  left_knee          │
+4  left_ankle        ┘
+5  neck_pitch        ┐
+6  head_pitch         │ 脖子/头4个
+7  head_yaw          │
+8  head_roll         ┘
+9  right_hip_yaw     ┐
+10 right_hip_roll    │
+11 right_hip_pitch   │ 右腿5个
+12 right_knee        │
+13 right_ankle      ┘</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 06 -->
+      <section id="06" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">06</span>
+            <h2 class="text-2xl font-bold text-amber-400">学习路线 — 从这只鸭子出发，能学什么、怎么学</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">学习路径总览</h3>
+            <div class="bg-gray-800 rounded-xl p-4 text-sm">
+              <p class="text-amber-400">▲ "我能造一台自己的" — PCB + 嵌入式固件</p>
+              <p class="text-gray-500 ml-4">▲ "我能让它思考" — 强化学习核心</p>
+              <p class="text-gray-500 ml-4">▲ "我能看到它动" — MuJoCo + 机器人学基础</p>
+              <p class="text-gray-500 ml-4">▲ "我会用Python" — Python工程基础</p>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">学习路线总结表</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">阶段</th><th class="py-2">时间投入</th><th class="py-2">目标</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td>1. Python工程</td><td>1周</td><td>熟悉dataclass/uv</td></tr>
+                  <tr class="border-b border-gray-800"><td>2. Linux</td><td>1周</td><td>会用systemd/journal</td></tr>
+                  <tr class="border-b border-gray-800"><td>3. 机器人学</td><td>4周</td><td>懂DH/动力学</td></tr>
+                  <tr class="border-b border-gray-800"><td>4. MuJoCo</td><td>2周</td><td>会改MJCF</td></tr>
+                  <tr class="border-b border-gray-800"><td>5. RL基础</td><td>8周</td><td>懂PPO/GAE</td></tr>
+                  <tr class="border-b border-gray-800"><td>6. sim2real</td><td>4周</td><td>懂DR/系统辨识</td></tr>
+                  <tr class="border-b border-gray-800"><td>7. 自定义任务</td><td>4周</td><td>训一个新动作</td></tr>
+                  <tr class="border-b border-gray-800"><td>8. Daemon</td><td>4周</td><td>Rust + IPC</td></tr>
+                  <tr class="border-b border-gray-800"><td>9. PCB</td><td>8周</td><td>STM32 + 总线</td></tr>
+                  <tr><td>10. 机械</td><td>8周</td><td>CAD + 3D打印</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-amber-400 text-sm">总计 <strong>~1.5年业余时间</strong> 可以达到"能造一台简化版鸭子+训它走起来"的水平。</p>
+
+            <h3 class="text-lg font-semibold text-white">立即开始的3个动作</h3>
+            <ol class="list-decimal list-inside space-y-2 text-gray-300">
+              <li><code>uv run train Mjlab-Velocity-Flat-MicroDuck --env.scene.num-envs 64 --agent.max_iterations 5</code></li>
+              <li>读 <code>AGENTS.md</code>：整整一本书的精华</li>
+              <li>在 <code>notes/</code> 写第一篇笔记</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- 07 -->
+      <section id="07" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">07</span>
+            <h2 class="text-2xl font-bold text-amber-400">打通软硬件与RL的任督二脉</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <p>面向已经能跑smoke test、但卡在"知道这代码在干嘛、不知为什么这么写"的同学。<strong class="text-white">核心论点：通过Microduck这一个真实项目，把"硬件+软件+强化学习"三层从抽象名词变成可改的代码行</strong>。</p>
+
+            <h3 class="text-lg font-semibold text-white">三层交集点</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">交集</th><th class="py-2">触点文件</th><th class="py-2">一句话解释</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800"><td>硬件→RL</td><td><code>actuator/friction_dr_bam.py:37-47</code></td><td>BAM把电压→电机力矩→摩擦预算封装成RL可见的扭矩</td></tr>
+                  <tr class="border-b border-gray-800"><td>硬件→RL</td><td><code>robot/microduck_constants.py:132-145</code></td><td>vin_range把NP-F550电池电压波动烤成DR</td></tr>
+                  <tr class="border-b border-gray-800"><td>软件→RL</td><td><code>microduck_velocity_env_cfg.py:193-340</code></td><td>env cfg把task用dataclass拆开</td></tr>
+                  <tr class="border-b border-gray-800"><td>RL→硬件</td><td><code>src/export.py:252-267</code></td><td>normalizer烤进ONNX = actor(normalizer(obs))</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">7步打通路线</h3>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-bold">步1</span> MuJoCo viewer（Week 1-2）</div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-bold">步2</span> 改一个reward（Week 3-4）</div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-bold">步3</span> 加一个新传感器（Week 5-6）</div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-bold">步4</span> 校准BAM（Week 7-8）</div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-bold">步5</span> 训一个简单任务（Week 9-10）</div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-bold">步6</span> 部署到真机（Week 11-12）</div>
+              <div class="bg-gray-800 p-3 rounded-lg col-span-2"><span class="text-amber-400 font-bold">步7</span> 端到端调通（Week 13-16）</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 08 -->
+      <section id="08" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">08</span>
+            <h2 class="text-2xl font-bold text-amber-400">如何阅读这个项目 — 4周入门路径</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">代码地图（5层架构）</h3>
+            <div class="bg-gray-800 rounded-xl p-4 text-sm">
+              <p class="text-purple-400">L0 · 物理与仿真 — MJCF / MuJoCo / BAM</p>
+              <p class="text-blue-400 ml-4">L1 · 环境 — env_cfg / mdp函数 / DR</p>
+              <p class="text-green-400 ml-4">L2 · 训练 — PPO / rsl_rl / runner</p>
+              <p class="text-yellow-400 ml-4">L3 · 导出与发布 — ONNX / manifest / Hub</p>
+              <p class="text-red-400 ml-4">L4 · 真机 — daemon / robotd / updater</p>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">必读10个文件/段落</h3>
+            <div class="space-y-2 text-sm">
+              <div class="bg-gray-800 p-3 rounded-lg flex gap-4"><span class="text-amber-400 font-mono w-8">1</span><code class="text-gray-300">scene.xml:30-40</code><span class="text-gray-500">STAND2 keyframe</span></div>
+              <div class="bg-gray-800 p-3 rounded-lg flex gap-4"><span class="text-amber-400 font-mono w-8">2</span><code class="text-gray-300">microduck_constants.py:85-109</code><span class="text-gray-500">HOME_FRAME正则+数值</span></div>
+              <div class="bg-gray-800 p-3 rounded-lg flex gap-4"><span class="text-amber-400 font-mono w-8">3</span><code class="text-gray-300">microduck_constants.py:132-145</code><span class="text-gray-500">BAM actuator kwargs</span></div>
+              <div class="bg-gray-800 p-3 rounded-lg flex gap-4"><span class="text-amber-400 font-mono w-8">4</span><code class="text-gray-300">friction_dr_bam.py:28-104</code><span class="text-gray-500">BAM继承+backlash编码器</span></div>
+              <div class="bg-gray-800 p-3 rounded-lg flex gap-4"><span class="text-amber-400 font-mono w-8">5</span><code class="text-gray-300">tasks/__init__.py:1-7</code><span class="text-gray-500">--hf-jobs拦截点</span></div>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">推荐4周计划</h3>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="bg-purple-900/30 border border-purple-800 p-3 rounded-lg"><span class="text-purple-400 font-bold">Week 1</span><p class="text-gray-300">MuJoCo + scene.xml + BAM actuator</p></div>
+              <div class="bg-blue-900/30 border border-blue-800 p-3 rounded-lg"><span class="text-blue-400 font-bold">Week 2</span><p class="text-gray-300">env_cfg + mdp.py主要函数</p></div>
+              <div class="bg-green-900/30 border border-green-800 p-3 rounded-lg"><span class="text-green-400 font-bold">Week 3</span><p class="text-gray-300">rsl_rl训练流程 + export.py + manifest.py</p></div>
+              <div class="bg-yellow-900/30 border border-yellow-800 p-3 rounded-lg"><span class="text-yellow-400 font-bold">Week 4</span><p class="text-gray-300">infer_policy.py + 真机daemon + 综合实战</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 09 -->
+      <section id="09" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">09</span>
+            <h2 class="text-2xl font-bold text-amber-400">机器人项目横向对比</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">桌面级（< $500）</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-gray-500 border-b border-gray-700"><th class="py-2">项目</th><th class="py-2">价格</th><th class="py-2">形态</th><th class="py-2">DOF</th><th class="py-2">训练方式</th></tr></thead>
+                <tbody class="text-gray-300">
+                  <tr class="border-b border-gray-800 bg-amber-900/20"><td><strong class="text-amber-400">Microduck</strong></td><td class="text-amber-400">$399</td><td>双足</td><td>14</td><td>mjlab + PPO + ONNX</td></tr>
+                  <tr class="border-b border-gray-800"><td>Reachy Mini Lite</td><td>$299</td><td>桌面头</td><td>6+1</td><td>HF Transformers</td></tr>
+                  <tr class="border-b border-gray-800"><td>SO-ARM100</td><td>~$100-300</td><td>机械臂</td><td>5+5</td><td>LeRobot ACT/DP3</td></tr>
+                  <tr class="border-b border-gray-800"><td>Poppy Ergo Jr</td><td>~$300-500</td><td>单臂</td><td>6</td><td>Python + snap!</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">Microduck的独一份卖点</h3>
+            <blockquote class="border-l-4 border-amber-500 pl-4 italic text-gray-400">
+              同价位<strong class="text-white">唯一同时具备</strong>（a）真实腿足（b）端到端RL训练栈（c）社区级sim2real流程的项目。
+            </blockquote>
+
+            <h3 class="text-lg font-semibold text-white">反查指南：想学什么 → 选哪个</h3>
+            <div class="space-y-2 text-sm">
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-semibold">学双足/腿足步态</span><p class="text-gray-400">入门→Microduck $399 / 进阶→Stanford Pupper / 科研→Solo</p></div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-semibold">学机械臂操作/模仿学习</span><p class="text-gray-400">入门→SO-ARM100+LeRobot $200 / 进阶→ALOHA $20k</p></div>
+              <div class="bg-gray-800 p-3 rounded-lg"><span class="text-amber-400 font-semibold">学全栈机器人</span><p class="text-gray-400">Microduck→Reachy Mini→Unitree G1</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10 -->
+      <section id="10" class="mb-16">
+        <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="bg-amber-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">10</span>
+            <h2 class="text-2xl font-bold text-amber-400">从零造一台自己的机器人</h2>
+          </div>
+          <div class="space-y-6 text-gray-300 leading-relaxed">
+            <h3 class="text-lg font-semibold text-white">5阶段造机指南</h3>
+            <div class="space-y-3">
+              <div class="bg-gray-800 p-4 rounded-xl">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="bg-green-600 text-white text-xs font-bold px-2 py-1 rounded">阶段0</span>
+                  <span class="font-semibold text-white">纯仿真</span>
+                  <span class="text-gray-500 text-sm">$0 · 1-2周</span>
+                </div>
+                <p class="text-sm text-gray-400">把RL链路跑通——能训一个在仿真里"会走"的策略</p>
+              </div>
+              <div class="bg-gray-800 p-4 rounded-xl">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">阶段1</span>
+                  <span class="font-semibold text-white">现成底盘 + Arduino/ESP32</span>
+                  <span class="text-gray-500 text-sm">$30-550 · 2-4周</span>
+                </div>
+                <p class="text-sm text-gray-400">体验sim2real第一道墙（摩擦、电池延迟、ROS通信延迟）</p>
+              </div>
+              <div class="bg-gray-800 p-4 rounded-xl">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded">阶段2</span>
+                  <span class="font-semibold text-white">桌面机械臂</span>
+                  <span class="text-gray-500 text-sm">$100-8000 · 4-8周</span>
+                </div>
+                <p class="text-sm text-gray-400">6-7 DOF，接触、力、视觉的整合。推荐SO-ARM100 + LeRobot</p>
+              </div>
+              <div class="bg-gray-800 p-4 rounded-xl">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="bg-amber-600 text-white text-xs font-bold px-2 py-1 rounded">阶段3</span>
+                  <span class="font-semibold text-white">桌面腿足机器人</span>
+                  <span class="text-gray-500 text-sm">$400-2000 · 8-16周</span>
+                </div>
+                <p class="text-sm text-gray-400">进腿足域。Stanford Pupper / Microduck自购 / Solo12</p>
+              </div>
+              <div class="bg-gray-800 p-4 rounded-xl">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">阶段4</span>
+                  <span class="font-semibold text-white">自研</span>
+                  <span class="text-gray-500 text-sm">$2000+ · 16周+</span>
+                </div>
+                <p class="text-sm text-gray-400">从BOM开始设计自己的双足/四足。机械+PCB+固件+训练栈迁移</p>
+              </div>
+            </div>
+
+            <h3 class="text-lg font-semibold text-white">推荐组合（与microduck配合）</h3>
+            <div class="space-y-2 text-sm">
+              <p><span class="text-amber-400">"我要做一个腿足机器人"</span> → 阶段3走Microduck训策略 + Stanford Pupper硬件</p>
+              <p><span class="text-amber-400">"我要做一个机械臂"</span> → 阶段2走SO-ARM100 + LeRobot</p>
+              <p><span class="text-amber-400">"我要做全栈"</span> → microduck训策略 + 自己仿照microduck造一台</p>
+              <p><span class="text-amber-400">"我要快速出demo/毕设"</span> → 阶段1走JetBot或TurtleBot 3 + ROS2</p>
+              <p><span class="text-amber-400">"我要发论文"</span> → 阶段4走Solo12/自研 + Isaac Gym或mjlab</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="text-center text-gray-600 text-sm py-12 border-t border-gray-800">
+        <p>🦆 duck_分析 — Microduck 项目学习笔记本</p>
+        <p class="mt-2">基于 Pollen Robotics / Hugging Face Microduck</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // Highlight active TOC link on scroll
+    const sections = document.querySelectorAll('section[id]');
+    const tocLinks = document.querySelectorAll('.toc-link');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          tocLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + entry.target.id) {
+              link.classList.add('active');
+            }
+          });
+        }
+      });
+    }, { threshold: 0.3 });
+
+    sections.forEach(section => observer.observe(section));
+  </script>
+</body>
+</html>

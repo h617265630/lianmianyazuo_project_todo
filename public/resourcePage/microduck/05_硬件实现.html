@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05 硬件实现 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        h3 { color: #8b5cf6; font-size: 1.1em; margin: 24px 0 12px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>05 · 硬件实现 —— 把每一颗螺丝看清楚</h1>
+        <div class="meta">数据来源：产品页、媒体报道、仓库 XML 元数据。★ 为推测。</div>
+
+        <h2>1. 整机参数（已确认）</h2>
+        <table>
+            <tr><th>项目</th><th>值</th><th>来源</th></tr>
+            <tr><td>身高</td><td>25 cm</td><td>产品页</td></tr>
+            <tr><td>宽度</td><td>14 cm</td><td>产品页</td></tr>
+            <tr><td>体重</td><td>780–800 g</td><td>产品页 / 报道</td></tr>
+            <tr><td>伺服数</td><td>14 + 1 鸟喙 = 15</td><td>产品页 + 仓库</td></tr>
+            <tr><td>电池</td><td>NP-F550（2600 mAh，Sony 标准）</td><td>产品页</td></tr>
+            <tr><td>续航</td><td>~1 h 持续运行</td><td>产品页</td></tr>
+            <tr><td>售价</td><td>$399 预购</td><td>产品页</td></tr>
+            <tr><td>上市</td><td>2026-08-27 开放预订</td><td>媒体</td></tr>
+            <tr><td>制造商</td><td>Pollen Robotics（设计）+ Seeed Studio（代工）</td><td>报道</td></tr>
+        </table>
+
+        <h2>2. 主板 / 计算单元</h2>
+        <table>
+            <tr><th>部件</th><th>规格</th><th>备注</th></tr>
+            <tr><td>SoC</td><td>Rockchip <strong>RK3566</strong></td><td>4× Cortex-A55 @ 1.8 GHz</td></tr>
+            <tr><td>GPU</td><td>Mali-G52</td><td>仅用于可能的 ISP / 显示</td></tr>
+            <tr><td>NPU</td><td>0.8 TOPS</td><td>可选用于本地语音 / 视觉</td></tr>
+            <tr><td>RAM</td><td>1 GB LPDDR4</td><td></td></tr>
+            <tr><td>存储</td><td>32 GB eMMC</td><td>装系统 + 策略</td></tr>
+            <tr><td>控制频率</td><td><strong>50 Hz</strong></td><td>仓库文档</td></tr>
+        </table>
+
+        <h2>3. 伺服系统（重点）</h2>
+        <h3>3.1 Dynamixel XL330-M288-T</h3>
+        <table>
+            <tr><th>参数</th><th>值</th></tr>
+            <tr><td>电机</td><td>空心杯有刷 DC</td></tr>
+            <tr><td>编码器</td><td>12-bit 磁编（4096 分辨率）</td></tr>
+            <tr><td>通信</td><td>TTL 半双工总线（daisy chain）</td></tr>
+            <tr><td>协议</td><td>Dynamixel Protocol 2.0</td></tr>
+            <tr><td>力矩</td><td>~0.42–0.6 N·m</td></tr>
+            <tr><td>控制模式</td><td>电流 / 位置 / 速度 / PWM</td></tr>
+        </table>
+
+        <h3>3.2 14 个伺服的关节映射</h3>
+        <pre><code>0  left_hip_yaw      ┐
+1  left_hip_roll      │
+2  left_hip_pitch     │ 左腿 5 个
+3  left_knee          │
+4  left_ankle        ┘
+5  neck_pitch        ┐
+6  head_pitch         │ 脖子 / 头 4 个
+7  head_yaw          │
+8  head_roll         ┘
+9  right_hip_yaw     ┐
+10 right_hip_roll    │
+11 right_hip_pitch   │ 右腿 5 个
+12 right_knee        │
+13 right_ankle      ┘
+</code></pre>
+        <p>左右对称分布，<strong>neck + head 占 4 个</strong>——鸭子的"表情"几乎全部靠头颈实现。</p>
+
+        <h2>4. 传感器</h2>
+        <h3>4.1 IMU（确认）</h3>
+        <p>真机上推测是 BMI270 / ICM-42607 这类 6 轴。<strong>产品页：body 1 个 + head 1 个 = 2 个 6 轴 IMU</strong>。</p>
+        <h3>4.2 摄像头</h3>
+        <p>前向广角 OV5640 类（5MP），30 fps，MIPI CSI。<strong>当前 RL 训练栈不直接用摄像头</strong>——纯 proprioception。</p>
+        <h3>4.3 ToF</h3>
+        <p>产品页：8×8 ToF（推测是 ST VL53L8CX 或类似），测距范围 ~5 cm – 2 m。</p>
+        <h3>4.4 NFC</h3>
+        <p>2 个天线，位置在头顶 + 鸟喙，协议 ISO 14443A / NFC-A（手机兼容）。</p>
+
+        <h2>5. 电源 / 充电</h2>
+        <ul>
+            <li><strong>主电池 NP-F550</strong>：7.2 V 锂离子，2600 mAh ≈ 18 Wh</li>
+            <li>全负荷 ~10 W → ~1 小时续航</li>
+            <li><strong>为什么选 NP-F550</strong>：Sony 标准电池，和摄影机通用，便宜；可拆卸</li>
+        </ul>
+
+        <h2>8. sim2real 的硬件侧难点</h2>
+        <table>
+            <tr><th>sim2real gap</th><th>仓库里怎么处理</th></tr>
+            <tr><td>真实伺服不是位置完美的</td><td><strong>BAM 模型</strong>——电压控制 + 摩擦模型</td></tr>
+            <tr><td>关节有间隙</td><td><strong>backlash 模型</strong>——±1° 被动铰链</td></tr>
+            <tr><td>电池电压不稳</td><td><code>vin_drop_gain</code> 域随机化</td></tr>
+            <tr><td>IMU 噪声</td><td><code>sensors.xml</code> 加 <code>noise="0.001"</code></td></tr>
+            <tr><td>真实摩擦未知</td><td><code>foot_friction</code> 域随机化（PU 鞋底）</td></tr>
+        </table>
+
+        <h2>9. 一台 $399 的机器人成本拆解 ★ 推测</h2>
+        <table>
+            <tr><th>部件</th><th>估算成本</th></tr>
+            <tr><td>15 × XL330（批发价 ~$25/颗）</td><td>$375</td></tr>
+            <tr><td>RK3566 + RAM + eMMC</td><td>$25</td></tr>
+            <tr><td>电池 NP-F550</td><td>$15</td></tr>
+            <tr><td>PCB + 被动元件</td><td>$15</td></tr>
+            <tr><td>外壳（塑料件）</td><td>$20</td></tr>
+            <tr><td>传感器</td><td>$20</td></tr>
+            <tr><td><strong>BOM 合计</strong></td><td><strong>~$480</strong></td></tr>
+            <tr><td><strong>售价</strong></td><td><strong>$399</strong></td></tr>
+        </table>
+        <p>BOM 接近售价 → Pollen 走的是<strong>生态 / 软件 / 销量</strong>路线，硬件不赚钱。</p>
+    </div>
+</body>
+</html>

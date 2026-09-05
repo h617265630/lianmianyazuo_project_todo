@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08 如何阅读这个项目 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>08 · 如何阅读这个项目 —— 给新人的 4 周入门路径</h1>
+        <div class="meta">回答：我应该先读哪一份代码，按什么顺序读，读的时候盯着什么看？</div>
+
+        <h2>0. 这是一篇师兄视角的导读</h2>
+        <p>我在仓库里挖了一圈以后，给你画一张心智地图。它有五层，每层只关心自己的事：</p>
+        <table>
+            <tr><th>层</th><th>关心的对象</th><th>在仓库里的入口</th></tr>
+            <tr><td><strong>L0 · 物理与仿真</strong></td><td>MJCF / MuJoCo / BAM</td><td>src/mjlab_microduck/robot/microduck/*.xml</td></tr>
+            <tr><td><strong>L1 · 环境</strong></td><td>env_cfg / mdp 函数 / DR</td><td>src/mjlab_microduck/tasks/*.py</td></tr>
+            <tr><td><strong>L2 · 训练</strong></td><td>PPO / rsl_rl / runner</td><td>间接：mjlab 包，触发点在 train_cli.py</td></tr>
+            <tr><td><strong>L3 · 导出与发布</strong></td><td>ONNX / manifest / Hub</td><td>src/mjlab_microduck/export.py、publish/</td></tr>
+            <tr><td><strong>L4 · 真机</strong></td><td>daemon / robotd / updater</td><td>不在这个仓库！在 pollen-robotics/microduck</td></tr>
+        </table>
+
+        <h2>1. 整体代码地图（按依赖关系分层）</h2>
+        <h3>Layer 0 · 物理与仿真（先有身体，再有脑子）</h3>
+        <ul>
+            <li><strong>MJCF 模型</strong> — robot_walk.xml / robot_groundcontact.xml</li>
+            <li><strong>Scene</strong> — scene.xml / scene_walk.xml / scene_rollers.xml</li>
+            <li><strong>BAM 物理</strong> — src/mjlab_microduck/actuator/friction_dr_bam.py</li>
+            <li><strong>关键常量</strong> — src/mjlab_microduck/robot/microduck_constants.py</li>
+        </ul>
+
+        <h3>Layer 1 · 环境（env / mdp）</h3>
+        <ul>
+            <li><strong>任务注册表</strong> — tasks/__init__.py</li>
+            <li><strong>入口 cfg</strong> — microduck_velocity_env_cfg.py</li>
+            <li><strong>MDP 函数库</strong> — src/mjlab_microduck/tasks/mdp.py（7188 行、230 个函数）</li>
+            <li><strong>Backlash 变体</strong> — src/mjlab_microduck/tasks/backlash.py</li>
+        </ul>
+
+        <h3>Layer 2 · 训练（PPO / rsl_rl）</h3>
+        <p>训练算法本身（PPO、rsl_rl）在 mjlab 包里，不重写。MicroduckOnPolicyRunner 只覆写一行 — 把 symmetry cfg 里的 _env 引用剔掉再 dump yaml。</p>
+
+        <h3>Layer 3 · 导出与发布（ONNX / manifest）</h3>
+        <ul>
+            <li><strong>导出</strong> — src/mjlab_microduck/export.py（311 行）</li>
+            <li><strong>Manifest</strong> — src/mjlab_microduck/publish/manifest.py（386 行，没有 mjlab / torch import）</li>
+        </ul>
+
+        <h2>2. 推荐 4 周阅读计划（每天 1-2 小时）</h2>
+        <h3>Week 1 · 把 MuJoCo 那层吃透</h3>
+        <ul>
+            <li>Day 1-2：MuJoCo + scene.xml，装 MuJoCo viewer，打开 scene.xml</li>
+            <li>Day 3-4：robot_walk.xml 与 14 DOF，通读 default 段</li>
+            <li>Day 5-7：BAM actuator，通读 friction_dr_bam.py</li>
+        </ul>
+        <h3>Week 2 · 把 env / mdp 这层读通</h3>
+        <ul>
+            <li>Day 1-3：microduck_constants.HOME_FRAME</li>
+            <li>Day 4-5：mdp.py 主要函数（_fallen_mask、upright_progress）</li>
+            <li>Day 6-7：microduck_velocity_env_cfg.py</li>
+        </ul>
+        <h3>Week 3 · 训练、导出、发布</h3>
+        <ul>
+            <li>Day 1-3：rsl_rl 训练流程，MicroduckOnPolicyRunner</li>
+            <li>Day 4-5：export.py</li>
+            <li>Day 6-7：publish/manifest.py</li>
+        </ul>
+        <h3>Week 4 · 真机回路 + 综合实战</h3>
+        <ul>
+            <li>Day 1-3：infer_policy.py 调试策略</li>
+            <li>Day 4-5：pollen-robotics/microduck 真机 daemon</li>
+            <li>Day 6-7：综合实战——小改一个 cfg + 训 5 iter</li>
+        </ul>
+
+        <h2>3. 关键代码段怎么读</h2>
+        <h3>3.1 必读 10 个文件 / 段落</h3>
+        <table>
+            <tr><th>#</th><th>文件 / 段落</th><th>行号</th><th>读这一段要看出什么</th></tr>
+            <tr><td>1</td><td>scene.xml</td><td>:30-40</td><td>STAND2 keyframe 的 14 个弧度值和 STAND vs STAND2 的来历注释</td></tr>
+            <tr><td>2</td><td>microduck_constants.py</td><td>:85-109</td><td>HOME_FRAME 的正则 + 数值 + STAND2 为什么这么定</td></tr>
+            <tr><td>3</td><td>microduck_constants.py</td><td>:132-145</td><td>BAM actuator kwargs：vin / vin_drop / kp_fw / delay 的取值与物理含义</td></tr>
+            <tr><td>4</td><td>friction_dr_bam.py</td><td>:28-104</td><td>怎么继承 BAM、怎么加 friction_scale、怎么把 encoder 闭合到 backlash 输出</td></tr>
+            <tr><td>5</td><td>tasks/__init__.py</td><td>:1-7</td><td>--hf-jobs 拦截点的位置（import 副作用）和它为什么不会被抢</td></tr>
+            <tr><td>6</td><td>tasks/__init__.py</td><td>:254-278</td><td>14 个 backlash 变体的注册表 + _BACKLASH_TASKS 配对写法</td></tr>
+            <tr><td>7</td><td>mdp.py</td><td>:24-58</td><td>两处 NaN monkey-patch 和它们各自的触发时机</td></tr>
+            <tr><td>8</td><td>microduck_velocity_env_cfg.py</td><td>:277-301</td><td>pose + upright + foot_slip 这三个 reward 的 patch 链 + 各自注释里的物理解释</td></tr>
+            <tr><td>9</td><td>backlash.py</td><td>:42-92</td><td>替换 robot cfg + 重映射 obs + 收紧 dof_pos_limits 的三步法</td></tr>
+            <tr><td>10</td><td>manifest.py</td><td>:22-86, 185-218</td><td>61/14 的契约、Provenance、validate_manifest 的 daemon-侧契约</td></tr>
+        </table>
+
+        <h2>8. 写在最后</h2>
+        <blockquote>
+            microduck_rl 仓库最有意思的不是某一段代码，而是它<strong>每个角落都有一句注释解释"为什么这里不能这样写"</strong>。这些注释不是写给 review 的，是写给"六个月后回来改的自己"的。
+            <br><br>
+            读这个仓库最有效的姿势，不是逐行读，是带着问题读：
+            <ul>
+                <li>"为什么这个 reward weight 是这个数？"</li>
+                <li>"为什么这个正则要 ^(?!passive_)？"</li>
+                <li>"为什么这里要 monkey-patch mjlab 的 compute_returns？"</li>
+            </ul>
+            每个问题背后都有一次具体的失败。AGENTS.md 是这些故事的目录；git log 是故事本身；代码是结局。
+        </blockquote>
+    </div>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOM清单 - Board1 PCB OnePage V1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        header {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+        }
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.15);
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+        .stat-item .label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .stat-item .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: #1a73e8;
+        }
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .filter-group label {
+            font-size: 14px;
+            color: #666;
+        }
+        .filter-group select {
+            padding: 10px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 14px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+            border-bottom: 2px solid #e0e0e0;
+            cursor: pointer;
+            user-select: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        th:hover {
+            background: #e8f0fe;
+        }
+        th .sort-icon {
+            margin-left: 5px;
+            opacity: 0.4;
+        }
+        th.sorted .sort-icon {
+            opacity: 1;
+            color: #1a73e8;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+        tr:hover {
+            background: #f8f9ff;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .qty {
+            font-weight: bold;
+            color: #1a73e8;
+        }
+        .designators {
+            font-family: "SF Mono", "Consolas", monospace;
+            font-size: 12px;
+            color: #555;
+        }
+        .nc-tag {
+            background: #ffebee;
+            color: #c62828;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .manufacturer {
+            font-size: 12px;
+            color: #666;
+        }
+        .supplier-link {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+        .supplier-link:hover {
+            text-decoration: underline;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            .filter-group {
+                width: 100%;
+            }
+            .filter-group select {
+                flex: 1;
+            }
+            th, td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1📋 BOM清单</h1>
+            <p>Board1 PCB OnePage V1 &nbsp;|&nbsp; 2026-09-06</p>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="label">物料种类</div>
+                    <div class="value" id="itemCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">总数量</div>
+                    <div class="value" id="totalQty">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">有库存</div>
+                    <div class="value" id="inStock">0</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 搜索器件型号、封装、描述...">
+            </div>
+            <div class="filter-group">
+                <label>类型筛选:</label>
+                <select id="typeFilter">
+                    <option value="">全部</option>
+                    <option value="C">电容 (C)</option>
+                    <option value="R">电阻 (R)</option>
+                    <option value="L">电感 (L)</option>
+                    <option value="D">二极管 (D)</option>
+                    <option value="U">IC芯片 (U)</option>
+                    <option value="K">按键 (K)</option>
+                    <option value="X">晶振 (X)</option>
+                    <option value="J">连接器 (J)</option>
+                    <option value="FPC">FPC</option>
+                    <option value="USB">USB</option>
+                    <option value="TP">测试点</option>
+                    <option value="ANT">天线</option>
+                    <option value="LED">LED</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>制造商:</label>
+                <select id="mfgFilter">
+                    <option value="">全部</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="bomTable">
+                <thead>
+                    <tr>
+                        <th data-col="0">No. <span class="sort-icon">⇅</span></th>
+                        <th data-col="1">数量 <span class="sort-icon">⇅</span></th>
+                        <th data-col="2">描述/型号 <span class="sort-icon">⇅</span></th>
+                        <th data-col="3">位号 <span class="sort-icon">⇅</span></th>
+                        <th data-col="4">封装 <span class="sort-icon">⇅</span></th>
+                        <th data-col="5">值 <span class="sort-icon">⇅</span></th>
+                        <th data-col="6">厂商型号 <span class="sort-icon">⇅</span></th>
+                        <th data-col="7">制造商 <span class="sort-icon">⇅</span></th>
+                        <th data-col="8">供应商料号 <span class="sort-icon">⇅</span></th>
+                        <th data-col="9">供应商 <span class="sort-icon">⇅</span></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const bomData = [
+            ["1","1","RFANT3216120A5T","ANT1","FILTER-SMD_1206-2P-L3.2-W1.6-L","","RFANT3216120A5T","Walsin(华新科)","C127629","LCSC"],
+            ["2","3","100nF","C1,C21,C22","C0402","100nF","0402B104K160NT","FH(风华)","C41851","LCSC"],
+            ["3","11","100nF","C2,C11,C14,C16,C19,C26,C28,C34,C35,C36,C37","C0402","100nF","CL05B104KB54PNC","SAMSUNG(三星)","C307331","LCSC"],
+            ["4","15","1uF","C3,C4,C6,C7,C8,C9,C10,C12,C13,C15,C17,C18,C23,C29,C38","C0402","1uF","CL05A105KA5NQNC","SAMSUNG(三星)","C52923","LCSC"],
+            ["5","1","4.7uF","C5","C0402","4.7uF","GRM155R61E475ME15D","muRata(村田)","C2858031","LCSC"],
+            ["6","7","10uF","C20,C24,C25,C27,C32,C39,C44","C0402","10uF","CL05A106MQ5NUNC","SAMSUNG(三星)","C15525","LCSC"],
+            ["7","2","7pF","C30,C31","C0402","7pF","GCM1555C1H7R0BA16D","muRata(村田)","C368596","LCSC"],
+            ["8","1","10nF","C33","C0402","10nF","CL05B103KB5NNNC","SAMSUNG(三星)","C15195","LCSC"],
+            ["9","2","12pF","C40,C41","C0402","12pF","0402CG120J500NT","FH(风华)","C1547","LCSC"],
+            ["10","1","0.8pF","C42","C0201","0.8pF","GJM0335C1ER80WB01D","muRata(村田)","C408126","LCSC"],
+            ["11","1","NC","C43","C0201","NC","0201X104K6R3NT","FH(风华)","","LCSC"],
+            ["12","1","5033981892","CARD1","TF-SMD_503398-1892","","5033981892","MOLEX","C428492","LCSC"],
+            ["13","1","BDFN2C051V","D1","X1SON-2_L1.0-W0.6-P0.65-BI","","BDFN2C051V","BORN(伯恩半导体)","C152024","LCSC"],
+            ["14","4","B5817WS","D2,D3,D4,D5","SOD-323_L1.7-W1.3-LS2.5-FD","","B5817WS","R+O(宏嘉诚)","C7420329","LCSC"],
+            ["15","1","HC-FPC-05-09-24RLTAG","FPC1","FPC-SMD_24P-P0.50_HC-FPC-05-09-24RLTAG","","HC-FPC-05-09-24RLTAG","HCTL(华灿天禄)","C5213757","LCSC"],
+            ["16","1","A1254WR-S-2P","J1","CONN-SMD_A1254WR-S-2P","","A1254WR-S-2P","CJT(长江连接器)","C272975","LCSC"],
+            ["17","4","TS3819ZJ 160gf","K1,K2,K3,K4","KEY-SMD_TS3819ZJ","","TS3819ZJ 160gf","SHOU HAN(首韩)","C6386917","LCSC"],
+            ["18","1","10uH","L1","IND-SMD_L2.5-W2.0","10uH","FTC252012S100MBCA","cjiang(长江微电)","C5832376","LCSC"],
+            ["19","1","2nH","L2","L0402","2nH","SDCL1005C2N0STDF","Sunlord(顺络)","C43365","LCSC"],
+            ["20","1","2.2uH","L3","IND-SMD_L2.0-W1.6-B","2.2uH","FTC201610S2R2MBCA","cjiang(长江微电)","C5832344","LCSC"],
+            ["21","1","27nH","L4","IND-SMD_L1.0-W0.5-2","27nH","LQW15AN27NG00D","muRata(村田)","C98057","LCSC"],
+            ["22","1","4.3nH","L5","L0201","4.3nH","LQP03HQ4N3H02D","muRata(村田)","C2988753","LCSC"],
+            ["23","1","ICMEF112P900MFR","L9","FILTER-SMD_ICMEF112P900M-1","","ICMEF112P900MFR","ICT","C125058","LCSC"],
+            ["24","1","NCD3010RG1","LED1","LED-SMD_NCD3010RG1","","NCD3010RG1","国星光电","C2917189","LCSC"],
+            ["25","2","5.1kΩ","R1,R2","R0402","5.1kΩ","0402WGF5101TCE","UNI-ROYAL(厚声)","C25905","LCSC"],
+            ["26","1","2.2Ω","R3","R0603","2.2Ω","CRCW06032R20FKEAHP","VISHAY(威世)","C2086340","LCSC"],
+            ["27","2","1Ω","R4,R36","R0402","1Ω","0402WGF100KTCE","UNI-ROYAL(厚声)","C25086","LCSC"],
+            ["28","1","39kΩ","R5","R0402","39kΩ","0402WGF3902TCE","UNI-ROYAL(厚声)","C25783","LCSC"],
+            ["29","16","10kΩ","R6,R8,R13,R15,R17,R19,R21,R22,R23,R24,R25,R26,R27,R29,R31,R35","R0402","10kΩ","0402WGF1002TCE","UNI-ROYAL(厚声)","C25744","LCSC"],
+            ["30","3","5.1MΩ","R7,R12,R30","R0402","5.1MΩ","0402WGF5104TCE","UNI-ROYAL(厚声)","C270595","LCSC"],
+            ["31","2","2.2kΩ","R9,R10","R0402","2.2kΩ","0402WGF2201TCE","UNI-ROYAL(厚声)","C25879","LCSC"],
+            ["32","1","15kΩ","R11","R0402","15kΩ","RC0402FR-7W15KL","YAGEO(国巨)","C606169","LCSC"],
+            ["33","1","NC","R14","R0402","NC","0402WGF1002TCE","UNI-ROYAL(厚声)","","LCSC"],
+            ["34","1","1.5kΩ","R16","R0402","1.5kΩ","0402WGF1501TCE","UNI-ROYAL(厚声)","C25867","LCSC"],
+            ["35","1","100kΩ","R18","R0402","100kΩ","0402WGF1003TCE","UNI-ROYAL(厚声)","C25741","LCSC"],
+            ["36","1","6.8kΩ","R20","R0402","6.8kΩ","0402WGF6801TCE","UNI-ROYAL(厚声)","C25917","LCSC"],
+            ["37","1","45.3kΩ","R28","R0402","45.3kΩ","RC0402FR-0745K3L","YAGEO(国巨)","C137977","LCSC"],
+            ["38","1","NC","R33","R0201","NC","RC0201FR-070RL","YAGEO(国巨)","","LCSC"],
+            ["39","1","0Ω","R34","R0201","0Ω","RC0201FR-070RL","YAGEO(国巨)","C106227","LCSC"],
+            ["40","2","VBACKUP","TP1,TP3","TESTPOINT_2MM","","TestPoint","","",""],
+            ["41","1","ESP32-C61HR2","U1","QFN-40_L5.0-W5.0-P0.40-TL-EP3.3","","","","",""],
+            ["42","1","SI1308EDL","U2","SOT-323-3_L2.0-W1.3-P1.30-LS2.1-BR","","SI1308EDL","TECH PUBLIC(台舟)","C7603347","LCSC"],
+            ["43","1","LGS4056HDA","U3","DFN-8_L2.0-W2.0-P0.50-TL-EP1.6","","LGS4056HDA","Legend-Si(棱晶半导体)","C5124109","LCSC"],
+            ["44","1","LMD4737T261-OAC02","U4","MIC-SMD_6P-L4.7-W3.8-P1.65-TL","","LMD4737T261-OAC02","LinkMems(聆麦声学)","C19267425","LCSC"],
+            ["45","1","PY25Q128HA-WXH-IR","U5","WSON-8_L6.0-W5.0-P1.27-TL-EP","","PY25Q128HA-WXH-IR","PUYA(普冉)","C18208279","LCSC"],
+            ["46","6","TS2306A 200gf 002","U6,U7,U9,U10,U13,U14","SW-SMD_L3.0-W2.0-LS3.5","","TS2306A 200gf 002","SHOU HAN(首韩)","C5363482","LCSC"],
+            ["47","1","MT9700-N","U8","SOT-23-5_L2.9-W1.6-P0.95-LS2.9-BL","","MT9700-N","西安航天民芯","C42441843","LCSC"],
+            ["48","1","EA8103AT5R","U11","SOT-23-5_L2.9-W1.6-P0.95-LS2.8-BL","","EA8103AT5R","everanalog(申风)","C53312128","LCSC"],
+            ["49","1","LM66200DRLR","U12","SOT-583-8_L2.1-W1.2-P0.50-LS1.6-BL","","LM66200DRLR","TI(德州仪器)","C3235556","LCSC"],
+            ["50","1","TYPE-C 16P CB0.8 073","USB1","USB-C-SMD_TYPE-C-16P-CB0.8-073","","TYPE-C 16P CB0.8 073","SHOU HAN(首韩)","C2906289","LCSC"],
+            ["51","1","40MHz","X1","CRYSTAL-SMD_4P-L2.0-W1.6-BL-2","40MHz","T201640MFBDE2X","YJX(雅晶鑫)","C20885029","LCSC"],
+            ["52","1","32.768kHz","X2","FC-12M_L2.0-W1.2","32.768kHz","X1A0000610006","EPSON(爱普生)","C99009","LCSC"]
+        ];
+
+        let sortCol = 0;
+        let sortDir = 'asc';
+        let filteredData = [...bomData];
+
+        const headers = document.querySelectorAll('th');
+        const tableBody = document.getElementById('tableBody');
+        const searchInput = document.getElementById('searchInput');
+        const typeFilter = document.getElementById('typeFilter');
+        const mfgFilter = document.getElementById('mfgFilter');
+
+        // Populate manufacturer filter
+        const manufacturers = [...new Set(bomData.map(r => r[7]).filter(m => m))].sort();
+        manufacturers.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            mfgFilter.appendChild(opt);
+        });
+
+        function getType(designator) {
+            if (!designator) return '';
+            const first = designator.charAt(0);
+            const map = { 'C':'C', 'R':'R', 'L':'L', 'D':'D', 'U':'U', 'K':'K', 'X':'X', 'J':'J', 'F':'FPC', 'T':'TP', 'A':'ANT', 'B':'LED' };
+            return map[first] || first;
+        }
+
+        function renderTable() {
+            const search = searchInput.value.toLowerCase();
+            const typeVal = typeFilter.value;
+            const mfgVal = mfgFilter.value;
+
+            filteredData = bomData.filter(row => {
+                const matchSearch = !search || row.some(cell => String(cell).toLowerCase().includes(search));
+                const type = getType(row[3]);
+                const matchType = !typeVal || type === typeVal;
+                const matchMfg = !mfgVal || row[7] === mfgVal;
+                return matchSearch && matchType && matchMfg;
+            });
+
+            // Sort
+            filteredData.sort((a, b) => {
+                const av = a[sortCol] || '';
+                const bv = b[sortCol] || '';
+                const cmp = av.toString().localeCompare(bv.toString(), 'en', { numeric: true });
+                return sortDir === 'asc' ? cmp : -cmp;
+            });
+
+            // Stats
+            document.getElementById('itemCount').textContent = filteredData.length;
+            document.getElementById('totalQty').textContent = filteredData.reduce((s, r) => s + parseInt(r[1] || 0), 0);
+            document.getElementById('inStock').textContent = filteredData.filter(r => r[8]).length;
+
+            if (filteredData.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="10" class="empty-state">没有找到匹配的物料</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = filteredData.map(row => {
+                const isNC = row[2] === 'NC';
+                const mfgPart = row[6] || '-';
+                const supplierPart = row[8] || '-';
+                const supplierLink = row[8] ? `<a href="https://www.lcsc.com/search?q=${row[8]}" target="_blank" class="supplier-link">${row[8]}</a>` : '-';
+
+                return `<tr>
+                    <td>${row[0]}</td>
+                    <td class="qty">${row[1]}</td>
+                    <td>${isNC ? '<span class="nc-tag">NC</span>' : row[2]}</td>
+                    <td class="designators">${row[3]}</td>
+                    <td>${row[4] || '-'}</td>
+                    <td>${row[5] || '-'}</td>
+                    <td>${mfgPart}</td>
+                    <td class="manufacturer">${row[7] || '-'}</td>
+                    <td>${supplierLink}</td>
+                    <td>${row[9] || '-'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', renderTable);
+        typeFilter.addEventListener('change', renderTable);
+        mfgFilter.addEventListener('change', renderTable);
+
+        headers.forEach(th => {
+            th.addEventListener('click', () => {
+                const col = parseInt(th.dataset.col);
+                if (sortCol === col) {
+                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortCol = col;
+                    sortDir = 'asc';
+                }
+                headers.forEach(h => h.classList.remove('sorted'));
+                th.classList.add('sorted');
+                renderTable();
+            });
+        });
+
+        // Initial render
+        renderTable();
+    </script>
+</body>
+</html>

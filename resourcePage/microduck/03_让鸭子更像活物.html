@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03 让鸭子更像活物 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>03 · 让鸭子更像活物 —— 从"执行命令"到"有生命感"</h1>
+        <div class="meta">一个能走 / 能踢 / 能坐的机器依然是机械的。让它"像活物"，是另一层设计。</div>
+
+        <h2>1. 什么叫"像活物"</h2>
+        <table>
+            <tr><th>不像活物</th><th>像活物</th></tr>
+            <tr><td>给指令才动，不给指令就僵住</td><td>不给指令时晃头、踱步、梳理羽毛</td></tr>
+            <tr><td>100% 重复同一动作</td><td>走路时偶尔绊一下、停一下看</td></tr>
+            <tr><td>一接命令立刻响应</td><td>假装"思考"一下再执行</td></tr>
+            <tr><td>永远成功执行</td><td>偶尔失败——踢偏、没站稳</td></tr>
+            <tr><td>表情（LED）恒定</td><td>收到指令时亮眼、摔倒了低头</td></tr>
+        </table>
+
+        <h2>2. 行为分层的思路</h2>
+        <p>把鸭子的行为想成 <strong>3 层金字塔</strong>：</p>
+        <pre><code>          ▲
+         /│\         第 3 层：性格 / 个性（idle 动作、声音、LED 节奏）
+        / │ \            ↑ 长期不变，但每次执行有微小差异
+       /──┼──\
+      /  │  \        第 2 层：反应 / 触发（被吓到 → 颤一下）
+     /   │   \          ↑ 由事件驱动：声音、触摸、NFC、视觉
+    /────┼────\
+   / 技能层  \        第 1 层：技能 / 任务（走、踢、鞠躬）
+  /─────────────\       ↑ 当前 ONNX 策略
+</code></pre>
+        <p><strong>当前仓库已经在第 1 层很扎实</strong>；第 2 层主要由 daemon 和外层应用负责；第 3 层基本是空白——这是你<strong>最值得发挥</strong>的层。</p>
+
+        <h2>3. 闲置动作（idle behavior）</h2>
+        <p>鸭子不动的时候干嘛？<strong>决不能僵直</strong>。几种思路：</p>
+        <h3>3.1 头部 idle</h3>
+        <p>训一个 head_idle 策略，或者直接写一个 head 摆动函数 + sinusoidal 命令</p>
+        <h3>3.2 踱步</h3>
+        <p>走路指令加微小的随机扰动，让速度不是 0</p>
+        <h3>3.3 姿态整理</h3>
+        <p>偶尔触发一个 0.5 s 的"伸懒腰" episodic 策略</p>
+        <blockquote>这些都不需要重新训大策略，<strong>只需要在 daemon 加个 idle 调度器</strong>。</blockquote>
+
+        <h2>4. 反应层（reactive layer）</h2>
+        <p>机器人"被吓到"是最经典的活物感来源。<strong>真机上有现成的传感器</strong>可以用：</p>
+        <table>
+            <tr><th>传感器</th><th>触发</th><th>反应</th></tr>
+            <tr><td>IMU（自由落体加速度）</td><td>检测到自由落体</td><td>缩颈、亮眼（摔倒反射）</td></tr>
+            <tr><td>ToF（深度）</td><td>突然有东西靠近</td><td>抬头看</td></tr>
+            <tr><td>麦克风</td><td>突然响声</td><td>头转向声源</td></tr>
+            <tr><td>触摸（鸟喙夹爪）</td><td>被触碰</td><td>抓住、摆动</td></tr>
+            <tr><td>NFC</td><td>读到 NFC 标签</td><td>触发对应 episodic</td></tr>
+        </table>
+
+        <h2>6. LED 表达（被忽视的维度）</h2>
+        <p>鸭子 LED 可以表达：</p>
+        <table>
+            <tr><th>状态</th><th>颜色 / 节奏</th></tr>
+            <tr><td>待机</td><td>呼吸蓝</td></tr>
+            <tr><td>行走</td><td>稳态白</td></tr>
+            <tr><td>摔倒</td><td>红色闪烁</td></tr>
+            <tr><td>收到指令</td><td>绿色脉冲</td></tr>
+            <tr><td>困惑</td><td>黄色慢闪</td></tr>
+            <tr><td>高兴</td><td>彩虹渐变</td></tr>
+        </table>
+        <blockquote><strong>这是让鸭子有"表情"最便宜的一招</strong>，duck 头顶 + 眼睛（如果有 LED）一起做就能立竿见影。</blockquote>
+
+        <h2>7. 声音 / 语音</h2>
+        <p>常见的"活物感"声音设计：</p>
+        <ul>
+            <li><strong>音效代替状态</strong>：摔倒 → "嘎"，鞠躬 → "嘎嘎"，停止 → 安静</li>
+            <li><strong>指令反馈</strong>：听到"过来" → "嘎！"（确认） → 走过来</li>
+            <li><strong>咕哝声</strong>：闲置时偶尔发一声非常短的"嘎？"</li>
+        </ul>
+        <blockquote><strong>不要做"语音助手"</strong>——鸭子是动物感，不是智能音箱。一个"嘎"比"好的，我来走"更可爱。</blockquote>
+
+        <h2>8. 总结：让鸭子"活"的 5 个具体动作</h2>
+        <table>
+            <tr><th>优先级</th><th>改动</th><th>效果</th></tr>
+            <tr><td>🥇 1</td><td>LED 颜色映射状态</td><td>一眼能看出来是活的</td></tr>
+            <tr><td>🥈 2</td><td>闲置时 head 微动 + 偶尔踱步</td><td>不会僵</td></tr>
+            <tr><td>🥉 3</td><td>摔倒音效 + 挣扎几下再躺</td><td>"失败"也是表达</td></tr>
+            <tr><td>4</td><td>触碰 / 声音触发反应</td><td>互动感</td></tr>
+            <tr><td>5</td><td>多策略混合编排 + 个体微调</td><td>个性</td></tr>
+        </table>
+        <p>前 3 项<strong>不需要重新训 RL</strong>，纯靠 daemon 编排层就能做出来。</p>
+    </div>
+</body>
+</html>

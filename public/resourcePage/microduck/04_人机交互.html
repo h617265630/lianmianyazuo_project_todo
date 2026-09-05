@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04 人机交互 - Microduck 项目学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2em; color: #fff; margin-bottom: 8px; border-bottom: 2px solid #ffd700; padding-bottom: 16px; }
+        .meta { color: #666; margin-bottom: 30px; }
+        h2 { color: #ffd700; font-size: 1.4em; margin: 36px 0 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }
+        p { margin: 14px 0; color: #ccc; }
+        a { color: #60a5fa; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.9em; color: #8b5cf6; }
+        pre { background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+        pre code { background: none; padding: 0; color: #a5b4fc; }
+        ul, ol { margin: 12px 0; padding-left: 24px; color: #ccc; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+        th, td { padding: 12px; text-align: left; border: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,215,0,0.1); color: #ffd700; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        blockquote { border-left: 3px solid #ffd700; padding-left: 16px; margin: 20px 0; color: #888; font-style: italic; }
+        .nav { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .nav a { display: inline-block; background: rgba(255,255,255,0.1); color: #ffd700; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9em; }
+        .nav a:hover { background: #ffd700; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 目录</a>
+        <a href="all-docs.html">全部内容</a>
+    </div>
+    <div class="container">
+        <h1>04 · 人机交互 —— 怎么"指挥"一只鸭子</h1>
+        <div class="meta">鸭子从硬件上提供了 5 种交互通道：游戏手柄、NFC、语音、LED、动作触发。</div>
+
+        <h2>1. 5 种交互通道总览</h2>
+        <pre><code>                 ┌─────────────────────────────────────────────┐
+                 │            duck（RK3566）                      │
+                 │   🎮 gamepad  ────▶ robotd / padd            │
+                 │   🏷️  NFC      ────▶ robotd / nfc             │
+                 │   🎤 mic       ────▶ wakeword + ASR          │
+                 │   💡 LED       ◀──── robotd                   │
+                 │   🔊 speaker   ◀──── robotd                   │
+                 └────────────┬─────────────────────────────────┘
+                              │ WebRTC / WiFi
+                              ▼
+                 ┌────────────────────────────────────────────┐
+                 │   App / CLI                                  │
+                 │   - robotctl policy add / do                 │
+                 │   - WebRTC video                             │
+                 └────────────────────────────────────────────┘
+</code></pre>
+
+        <h2>2. 游戏手柄（padd）</h2>
+        <table>
+            <tr><th>按键</th><th>功能（推测）</th></tr>
+            <tr><td>左摇杆</td><td>速度指令（vx, vy）→ walk slot</td></tr>
+            <tr><td>右摇杆</td><td>旋转 + 头部 yaw/pitch</td></tr>
+            <tr><td>A / B / X / Y</td><td>触发 episodic：sitstand / ground_pick / kick_left / kick_right</td></tr>
+            <tr><td>RB / LB</td><td>切换 walk ↔ stand</td></tr>
+            <tr><td>方向键 + R3</td><td>触发 roulade</td></tr>
+        </table>
+
+        <h2>3. NFC</h2>
+        <p>鸭子<strong>头上 + 鸟喙各有一个 NFC 天线</strong>。</p>
+        <table>
+            <tr><th>用法</th><th>场景</th></tr>
+            <tr><td>NFC 标签 = 触发器</td><td>把标签贴到杯子边上 → 鸭子靠近时自动 grab</td></tr>
+            <tr><td>拍头触发</td><td>用户拍鸭子头 → NFC 读到手机 → 触发鞠躬</td></tr>
+            <tr><td>Dev Pack 10 个标签</td><td>训练用：每个标签对应一个动作</td></tr>
+        </table>
+        <blockquote>这是<strong>给非技术用户最友好的交互方式</strong>：把鸭子带到一个标签边上，它就动了。</blockquote>
+
+        <h2>4. 语音</h2>
+        <p>鸭子有<strong>麦克风 + 扬声器</strong>，但仓库里没看到语音识别模块。</p>
+        <table>
+            <tr><th>能力</th><th>实现</th></tr>
+            <tr><td>听到声音方向</td><td>麦克风阵列 DOA（如果多 mic）</td></tr>
+            <tr><td>唤醒词</td><td>本地 wakeword（小词表，节能）</td></tr>
+            <tr><td>短指令 ASR</td><td>云端 / 本地 Whisper-tiny</td></tr>
+            <tr><td>反馈语音</td><td>预录"嘎"音效 / 合成语音</td></tr>
+        </table>
+
+        <h2>5. LED 视觉反馈</h2>
+        <p>LED 不只是装饰，<strong>是机器人状态的可视化协议</strong>。</p>
+        <table>
+            <tr><th>模式</th><th>含义</th><th>用户感知</th></tr>
+            <tr><td>慢呼吸</td><td>待机 / 健康</td><td>安心</td></tr>
+            <tr><td>持续常亮</td><td>正在执行</td><td>"它在忙"</td></tr>
+            <tr><td>闪烁</td><td>警报 / 错误</td><td>提示</td></tr>
+            <tr><td>颜色</td><td>不同语义</td><td>不需要记文档也能看懂</td></tr>
+        </table>
+
+        <h2>7. 一次完整的"交互剧本"</h2>
+        <p><strong>场景</strong>：用户拍了一下鸭子的头，鸭子歪头打量，然后鞠躬。</p>
+        <pre><code>1. 用户拍头
+   └─▶ NFC 天线读到手机 UID
+       └─▶ nfcd 查表：UID 1234 = "pet"
+           └─▶ robotd 收到事件 "pet"
+               └─▶ 调度：head_idle (episodic, 0.8s)
+                   └─▶ duck 歪头 + LED 闪一下
+2. head_idle 结束
+   └─▶ daemon 自动回到 walk slot（idle twist）
+3. 1.5s 后
+   └─▶ 调度：bow (episodic, 3s)
+       └─▶ duck 鞠躬 + 喇叭播放"嘎"
+       └─▶ 期间 LED 慢闪绿
+4. bow 结束
+   └─▶ 回到 walk idle
+</code></pre>
+        <p>整个流程里 <strong>RL 网络只做了"具体动作的执行"</strong>，<strong>调度、状态、感知都在 daemon</strong>。</p>
+
+        <h2>8. 你能从这里学到的"机器人交互设计原则"</h2>
+        <ol>
+            <li><strong>多通道冗余</strong>：同一个意图用多种方式都能触发（手柄 / NFC / 语音 / 触摸）</li>
+            <li><strong>状态可见</strong>：LED / 声音让用户知道"它在干嘛"</li>
+            <li><strong>永远可中断</strong>：用户随时按停 → 机器人能安全停下</li>
+            <li><strong>失败可读</strong>：摔倒 = 红色 LED + 挣扎动作，不是黑屏</li>
+            <li><strong>每条交互都有反馈</strong>：哪怕只是"嘎"一声，别静默</li>
+            <li><strong>不要装作很聪明</strong>：听不懂就"歪头"，不要假装懂</li>
+        </ol>
+    </div>
+</body>
+</html>

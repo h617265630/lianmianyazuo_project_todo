@@ -90,7 +90,7 @@ export const api = {
   listTodos: () => http.get<Todo[]>('/api/todos'),
   listOpenTodos: () => http.get<Todo[]>('/api/todos/open'),
   listDoneTodos: () => http.get<Todo[]>('/api/todos/done'),
-  createPublicTodo: (input: { userId: string; title: string; priority?: string; difficulty?: string; horizon?: TodoHorizon; dueDate?: string }) =>
+  createPublicTodo: (input: { userId: string; title: string; priority?: string; difficulty?: string; horizon?: TodoHorizon; dueDate?: string; projectId?: string }) =>
     http.post<Todo>('/api/todos/public', input),
   createTodo: (input: TodoInput) => http.post<Todo>('/api/todos', input),
   updateTodo: (id: string, patch: Partial<Todo>) => http.patch<Todo>(`/api/todos/${id}`, patch),

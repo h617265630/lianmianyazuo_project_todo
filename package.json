@@ -10,6 +10,7 @@
     "dev:server": "tsx watch server/index.ts",
     "typecheck": "vue-tsc --noEmit && tsc -p server/tsconfig.json --noEmit",
     "build": "vue-tsc -b && vite build",
+    "start": "./node_modules/.bin/tsx server/index.ts",
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

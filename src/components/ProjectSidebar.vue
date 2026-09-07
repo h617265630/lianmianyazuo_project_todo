@@ -44,7 +44,7 @@ const navItems = computed(() => [
 </script>
 
 <template>
-  <div class="w-56 shrink-0 flex flex-col border-r overflow-hidden" style="border-color: var(--color-line)">
+  <div class="workspace-sidebar w-56 shrink-0 flex flex-col border-r overflow-hidden" style="border-color: var(--color-line)">
     <!-- 项目切换区 -->
     <div class="p-5 border-b" style="border-color: var(--color-line)">
       <RouterLink

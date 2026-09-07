@@ -3,8 +3,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useProjectsStore } from '@/stores/projects'
 import { useAuthStore } from '@/stores/auth'
+import { useTodoAppearance } from '@/composables/useTodoAppearance'
 import { useTheme } from '@/composables/useTheme'
 
+const { appearance, setAppearance } = useTodoAppearance()
 const route = useRoute()
 const router = useRouter()
 const projects = useProjectsStore()
@@ -14,7 +16,7 @@ const openMobile = ref(false)
 const projectsOpen = ref(false)
 
 const items = computed(() => [
-  { name: '综合', to: '/docs' },
+  { name: '概览', to: '/' },
   {
     name: '项目',
     to: '/projects',
@@ -27,10 +29,11 @@ const items = computed(() => [
   { name: '待办', to: '/todos' },
   { name: '研究', to: '/research' },
   { name: '资料库', to: '/resources' },
+  { name: '综合', to: '/docs' },
 ])
 
 function isActive(target: string) {
-  if (target === '/') return route.path === '/' || route.path === '/docs'
+  if (target === '/') return route.path === '/'
   return route.path === target || route.path.startsWith(target + '/')
 }
 
@@ -60,7 +63,7 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
     class="sticky top-0 z-40"
     style="background-color: var(--header-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-line)"
   >
-    <div class="mx-auto max-w-[1600px] px-8 lg:px-12 h-14 flex items-center justify-between">
+    <div class="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-10 h-16 flex items-center justify-between">
       <RouterLink to="/" class="flex items-center gap-3 group" @click="close">
         <span
           class="inline-block w-1.5 h-1.5 rounded-full"
@@ -72,7 +75,7 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
       </RouterLink>
 
       <div class="flex items-center gap-4">
-        <nav v-if="isDesktop" class="flex items-baseline gap-7">
+        <nav v-if="isDesktop" class="flex items-baseline gap-1">
           <template v-for="item in items" :key="item.to">
             <div
               class="relative"
@@ -81,7 +84,8 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
             >
               <RouterLink
                 :to="item.to"
-                class="nav-link text-sm tracking-wide transition-colors flex items-center gap-1"
+                :class="{ 'nav-active': isActive(item.to) }"
+                class="nav-link rounded-lg px-3 py-2 text-sm tracking-wide transition-colors flex items-center gap-1"
                 :style="{
                   color: isActive(item.to) ? 'var(--color-ink)' : 'var(--color-ink-soft)',
                   fontWeight: isActive(item.to) ? '500' : '400',
@@ -125,6 +129,14 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
             </div>
           </template>
         </nav>
+
+        <label class="appearance-control">
+          <span>待办样式</span>
+          <select aria-label="待办卡片样式" :value="appearance" @change="setAppearance(($event.target as HTMLSelectElement).value as 'original' | 'alternate')">
+            <option value="original">原版</option>
+            <option value="alternate">备用版</option>
+          </select>
+        </label>
 
         <div class="theme-toggle" role="group" aria-label="主题切换">
           <button
@@ -208,6 +220,11 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 </template>
 
 <style scoped>
+.nav-active { background: var(--color-accent-soft); }
+.appearance-control { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-mute); }
+.appearance-control select { padding: 5px 7px; border: 1px solid var(--color-line); border-radius: 7px; background: var(--panel-bg); color: var(--color-ink); }
+@media (max-width: 1100px) { .appearance-control > span { display: none; } }
+@media (max-width: 480px) { .theme-toggle { display: none !important; } }
 .nav-link:hover {
   color: var(--color-ink) !important;
 }

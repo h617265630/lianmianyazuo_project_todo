@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { useKanbanStore, type KanbanBucket } from '@/stores/kanban'
-import KanbanCard from './KanbanCard.vue'
+import TodoBlock from '@/components/todo-block.vue'
 import type { Todo, TodoStatus } from '@/types'
 
 const props = defineProps<{
   bucket: KanbanBucket
   canWrite?: boolean
+  isHome?: boolean
 }>()
 
 const kanban = useKanbanStore()
+
 
 const isEditingTitle = ref(false)
 const editTitle = ref('')
@@ -88,7 +89,7 @@ function onTaskDelete(task: Todo) {
       </div>
 
       <button
-        v-if="canWrite"
+        v-if="canWrite && !isHome"
         class="text-xs text-stone-400 hover:text-red-500 ml-1"
         title="删除列"
         @click="deleteColumn"
@@ -99,7 +100,7 @@ function onTaskDelete(task: Todo) {
 
     <!-- Cards -->
     <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[4rem]">
-      <KanbanCard
+      <TodoBlock
         v-for="task in bucket.tasks"
         :key="task.id"
         :task="task"

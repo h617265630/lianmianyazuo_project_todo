@@ -27,7 +27,7 @@ export const useKanbanStore = defineStore('kanban', () => {
     isLoading.value = true
     try {
       views.value = await api.getProjectViews(pid)
-      if (views.value.length > 0 && !currentViewId.value) {
+      if (views.value.length > 0 && !views.value.some(view => view.id === currentViewId.value)) {
         currentViewId.value = views.value[0].id
       }
     } finally {

@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useProjectsStore } from '@/stores/projects'
-import { useTodosStore, difficultyLabels } from '@/stores/todos'
+import { useTodosStore } from '@/stores/todos'
 import { useResourcesStore } from '@/stores/resources'
 import { useResearchStore } from '@/stores/research'
-import { useKanbanStore } from '@/stores/kanban'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import KanbanBoard from '@/components/kanban/KanbanBoard.vue'
-import { relativeDays } from '@/utils/format'
+import TodoScheduleFields from '@/components/TodoScheduleFields.vue'
+import { localDate, weekRange, schedulePreset, schedulePatch, overlapsRange } from '@/utils/todoSchedule'
+import TodoBlock from '@/components/todo-block.vue'
 import { api } from '@/api'
-import type { Todo, TodoStatus } from '@/types'
+import type { Todo } from '@/types'
 
 const projects = useProjectsStore()
 const todos = useTodosStore()
 const resources = useResourcesStore()
 const research = useResearchStore()
-const kanban = useKanbanStore()
 
 const allOpenTodos = ref<Todo[]>([])
 const allDoneTodos = ref<Todo[]>([])
@@ -45,16 +45,21 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[home] 无法获取todos', e)
   }
-  kanban.loadBucketsHome(allOpenKanbanTodos.value)
-})
-
-// todos 变化时刷新看板
-watch(allOpenTodos, () => {
-  kanban.loadBucketsHome(allOpenKanbanTodos.value)
+  try {
+    await projects.load()
+  } catch (e) {
+    console.warn('[home] 无法获取projects', e)
+  }
 })
 
 const today = new Date()
-const todayStr = '2026-09-06'
+// 使用本地时区的"今天"（用户视角），避免跨时区错位
+const todayStr = ref(localDate())
+const dateTimer = setInterval(() => { todayStr.value = localDate() }, 30_000)
+onUnmounted(() => clearInterval(dateTimer))
+const currentWeek = computed(() => weekRange(todayStr.value))
+const filterStart = ref(currentWeek.value.startDate)
+const filterEnd = ref(currentWeek.value.dueDate)
 
 const greeting = computed(() => {
   const h = today.getHours()
@@ -88,374 +93,172 @@ const recentResearch = computed(() =>
     .slice(0, 3),
 )
 
-// 以「dueDate」为单位的开放 todos，按日期分组显示
-const dailyTodos = computed(() => {
-  const map = new Map<string, Todo[]>()
-  const today = todayStr
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
-
-  for (const t of allOpenTodos.value) {
-    if (!t.dueDate) continue
-    const label = t.dueDate === today ? '今日' : t.dueDate === tomorrow ? '明日' : t.dueDate === yesterday ? '昨日' : t.dueDate
-    if (!map.has(label)) map.set(label, [])
-    map.get(label)!.push(t)
-  }
-
-  // 按日期 key 自然排序
-  const order = ['昨日', '今日', '明日']
-  const keys = Array.from(map.keys()).sort((a, b) => {
-    const ai = order.indexOf(a)
-    const bi = order.indexOf(b)
-    if (ai !== -1 && bi !== -1) return ai - bi
-    if (ai !== -1) return -1
-    if (bi !== -1) return 1
-    return a.localeCompare(b)
-  })
-  return keys.map(k => ({ date: k, todos: map.get(k)! }))
-})
-
-// 今日 todos —— 以手动选择的时间跨度为准，而非截止日期
+// 今日和本周按实际安排的时间段筛选（含起止日期）
 const todayTodos = computed(() => {
-  return allOpenTodos.value.filter(t => t.horizon === 'today')
+  return allOpenTodos.value.filter(t => overlapsRange(t, todayStr.value, todayStr.value))
 })
 
-// 看板显示所有未完成的 todo（不限 horizon，确保有内容）
-const allOpenKanbanTodos = computed(() => {
-  return allOpenTodos.value
+// 本周待办
+const weekTodos = computed(() => {
+  return allOpenTodos.value.filter(t => overlapsRange(t, currentWeek.value.startDate, currentWeek.value.dueDate))
 })
 
-// 今日 todos 按用户分成两列：n 的待办 / v 的待办
-const nTodayTodos = computed(() =>
-  todayTodos.value.filter(t => t.userId === 'u-n'),
-)
-const vTodayTodos = computed(() =>
-  todayTodos.value.filter(t => t.userId === 'u-v'),
-)
+// Tab: 今日/本周/历史
+const todoTab = ref<'today' | 'week' | 'range' | 'history'>('today')
+// 左侧历史选中的日期（点哪条就在右侧显示该日的）
+const selectedHistoryDate = ref<string | null>(null)
+function selectHistoryDate(d: string) {
+  selectedHistoryDate.value = selectedHistoryDate.value === d ? null : d
+  if (selectedHistoryDate.value) todoTab.value = 'history'
+}
+function clearHistoryDate() {
+  selectedHistoryDate.value = null
+}
+const tabTodos = computed(() => {
+  if (todoTab.value === 'today') return todayTodos.value
+  if (todoTab.value === 'week') return weekTodos.value
+  if (todoTab.value === 'range') return allOpenTodos.value.filter(t => overlapsRange(t, filterStart.value, filterEnd.value))
+  // history：按选中日期过滤；没选就显示全部已完成
+  if (selectedHistoryDate.value) {
+    return allDoneTodos.value.filter(t => t.createdAt === selectedHistoryDate.value)
+  }
+  return allDoneTodos.value
+})
 
 // ==== 新增 todo ====
 const showAdd = ref(false)
+const newSchedule = ref(schedulePreset('today'))
+watch(showAdd, open => {
+  if (open) newSchedule.value = todoTab.value === 'range' ? { mode: 'custom', startDate: filterStart.value, dueDate: filterEnd.value } : schedulePreset(todoTab.value === 'week' ? 'week' : 'today')
+})
+const createError = ref('')
+const isCreating = ref(false)
 const newTodoUser = ref<'u-n' | 'u-v'>('u-n')
 const newTodoTitle = ref('')
 
 async function addTodo() {
   const title = newTodoTitle.value.trim()
-  if (!title) return
+  if (!title || isCreating.value) return
+  isCreating.value = true
+  createError.value = ''
   try {
     const created = await api.createPublicTodo({
       title,
       userId: newTodoUser.value,
       priority: 'medium',
       difficulty: 'medium',
-      horizon: 'today',
-      dueDate: todayStr,
+      ...schedulePatch(newSchedule.value),
     })
     allOpenTodos.value.unshift(created)
+    await todos.load()
     newTodoTitle.value = ''
     showAdd.value = false
   } catch (e) {
-    console.warn('[home] 添加todo失败', e)
-  }
-}
-
-async function cycleStatus(t: Todo) {
-  const order: TodoStatus[] = ['todo', 'doing', 'done']
-  const i = order.indexOf(t.status)
-  const next = order[(i + 1) % order.length]
-
-  // 如果是标记为完成，需要确认
-  if (next === 'done') {
-    if (!confirm(`确认完成「${t.title}」？`)) return
-  }
-
-  try {
-    await api.updateTodo(t.id, { status: next })
-    const idx = allOpenTodos.value.findIndex(x => x.id === t.id)
-    if (idx >= 0) {
-      if (next === 'done') {
-        allOpenTodos.value.splice(idx, 1)
-        allDoneTodos.value.unshift({ ...t, status: 'done' })
-      } else {
-        allOpenTodos.value[idx] = { ...t, status: next }
-      }
-    }
-  } catch (e) {
-    console.warn('[home] 更新状态失败', e)
-  }
-}
-
-async function updateTitle(t: Todo, newTitle: string) {
-  if (!newTitle.trim() || newTitle === t.title) return
-  try {
-    await api.updateTodo(t.id, { title: newTitle.trim() })
-    const idx = allOpenTodos.value.findIndex(x => x.id === t.id)
-    if (idx >= 0) allOpenTodos.value[idx] = { ...t, title: newTitle.trim() }
-  } catch (e) {
-    console.warn('[home] 更新标题失败', e)
-  }
-}
-
-async function deleteTodo(t: Todo) {
-  try {
-    await api.deleteTodo(t.id)
-    allOpenTodos.value = allOpenTodos.value.filter(x => x.id !== t.id)
-    allDoneTodos.value = allDoneTodos.value.filter(x => x.id !== t.id)
-  } catch (e) {
-    console.warn('[home] 删除失败', e)
+    createError.value = e instanceof Error ? e.message : '添加失败'
+  } finally {
+    isCreating.value = false
   }
 }
 
 function onTaskUpdate(updated: Todo) {
-  const idx = allOpenTodos.value.findIndex(x => x.id === updated.id)
-  if (idx >= 0) {
-    if (updated.status === 'done') {
-      allOpenTodos.value.splice(idx, 1)
-      allDoneTodos.value.unshift(updated)
-    } else {
-      allOpenTodos.value[idx] = updated
-    }
-  }
+  allOpenTodos.value = allOpenTodos.value.filter(x => x.id !== updated.id)
+  allDoneTodos.value = allDoneTodos.value.filter(x => x.id !== updated.id)
+  if (updated.status === 'done') allDoneTodos.value.unshift(updated)
+  else allOpenTodos.value.unshift(updated)
 }
 
-async function onTaskDelete(deleted: Todo) {
-  try {
-    await api.deleteTodo(deleted.id)
-    allOpenTodos.value = allOpenTodos.value.filter(x => x.id !== deleted.id)
-    allDoneTodos.value = allDoneTodos.value.filter(x => x.id !== deleted.id)
-  } catch (e) {
-    console.warn('[home] 删除失败', e)
-  }
+
+function onTaskDelete(deleted: Todo) {
+  allOpenTodos.value = allOpenTodos.value.filter(x => x.id !== deleted.id)
+  allDoneTodos.value = allDoneTodos.value.filter(x => x.id !== deleted.id)
 }
 
-async function restoreTodo(t: Todo) {
-  try {
-    await api.updateTodo(t.id, { status: 'todo' })
-    allDoneTodos.value = allDoneTodos.value.filter(x => x.id !== t.id)
-    allOpenTodos.value.unshift({ ...t, status: 'todo' })
-  } catch (e) {
-    console.warn('[home] 恢复失败', e)
-  }
-}
-
-function priorityMark(p: string) {
-  return p === 'high' ? '!!!' : p === 'medium' ? '!!' : '!'
-}
-function priorityColor(p: string) {
-  return p === 'high' ? 'var(--color-warn)' : p === 'medium' ? 'var(--color-ink)' : 'var(--color-mute)'
-}
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- ============ 状态概览 ============ -->
-    <section class="rise">
-      <header class="flex items-baseline justify-between mb-6">
-        <div>
-          <h2 class="text-3xl md:text-4xl font-medium" style="letter-spacing: -0.025em">{{ greeting }}</h2>
-          <p class="text-sm mt-2" style="color: var(--color-mute)">{{ todayLabel }}</p>
-        </div>
-      </header>
-
-      <div class="frame p-8">
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-          <div>
-            <p class="text-4xl tabular font-medium" style="color: var(--color-accent)">{{ projects.stats.inProgress }}</p>
-            <p class="text-xs tracking-widest uppercase mt-1" style="color: var(--color-mute)">进行</p>
-          </div>
-          <div>
-            <p class="text-4xl tabular font-medium" style="color: var(--color-mute)">{{ projects.stats.planning }}</p>
-            <p class="text-xs tracking-widest uppercase mt-1" style="color: var(--color-mute)">规划</p>
-          </div>
-          <div>
-            <p class="text-4xl tabular font-medium" style="color: var(--color-warn)">{{ projects.stats.blocked }}</p>
-            <p class="text-xs tracking-widest uppercase mt-1" style="color: var(--color-mute)">受阻</p>
-          </div>
-          <RouterLink to="/todos" class="block group" title="查看全部待办">
-            <p class="text-4xl tabular font-medium" style="color: var(--color-accent); transition: color 0.15s">{{ allOpenTodos.length }}</p>
-            <p class="text-xs tracking-widest uppercase mt-1" style="color: var(--color-mute)">待办</p>
-          </RouterLink>
-          <div>
-            <p class="text-4xl tabular font-medium" style="color: var(--color-ink)">{{ resources.items.length }}</p>
-            <p class="text-xs tracking-widest uppercase mt-1" style="color: var(--color-mute)">资料</p>
-          </div>
-          <div>
-            <p class="text-4xl tabular font-medium" style="color: var(--color-ink)">{{ research.stats.total }}</p>
-            <p class="text-xs tracking-widest uppercase mt-1" style="color: var(--color-mute)">研究</p>
-          </div>
-        </div>
+  <div class="home-workspace space-y-8">
+    <header class="home-heading flex flex-wrap items-end justify-between gap-5">
+      <div>
+        <p class="eyebrow">我的工作台 <span class="mx-2 opacity-40">/</span> {{ todayLabel }}</p>
+        <h1 class="mt-3 text-3xl sm:text-4xl font-medium">{{ greeting }}，让想法向前一步。</h1>
+        <p class="mt-3 text-sm" style="color: var(--color-mute)">从一个项目开始，把待办、资料与思考连在一起。</p>
       </div>
+      <RouterLink to="/projects" class="btn-cta">进入项目 <span aria-hidden="true">↗</span></RouterLink>
+    </header>
+
+    <section class="overview-strip" aria-label="工作台概况">
+      <RouterLink to="/projects"><span class="metric-caption">进行中的项目</span><strong>{{ projects.stats.inProgress }}</strong><span class="metric-hint">持续推进 <span>↗</span></span></RouterLink>
+      <RouterLink to="/todos"><span class="metric-caption">待完成的事项</span><strong>{{ allOpenTodos.length }}</strong><span class="metric-hint">一步一步来 <span>↗</span></span></RouterLink>
+      <RouterLink to="/resources"><span class="metric-caption">收藏的资料</span><strong>{{ resources.items.length }}</strong><span class="metric-hint">积累下一次灵感 <span>↗</span></span></RouterLink>
+      <RouterLink to="/research"><span class="metric-caption">沉淀的思考</span><strong>{{ research.items.length }}</strong><span class="metric-hint">让经验留下来 <span>↗</span></span></RouterLink>
     </section>
 
-    <!-- ============ 项目快捷入口 ============ -->
-    <section class="rise rise-1">
-      <header class="flex items-baseline justify-between mb-6">
-        <div>
-          <h2 class="text-3xl md:text-4xl font-medium" style="letter-spacing: -0.025em">
-            当前在做的项目
-          </h2>
-          <p class="text-sm mt-2" style="color: var(--color-mute)">
-            点击直达 — 进度、瓶颈、相关资料一站查阅
-          </p>
-        </div>
-        <RouterLink to="/projects" class="btn-link text-sm">查看全部 →</RouterLink>
-      </header>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <RouterLink
-          v-for="(p, i) in featuredProjects"
-          :key="p.id"
-          :to="`/projects/${p.id}`"
-          class="glass group p-6 transition duration-200 hover:border-accent hover:-translate-y-0.5"
-        >
-          <div class="flex items-start justify-between mb-6">
-            <span
-              class="text-xs tracking-widest uppercase tabular"
-              style="color: var(--color-mute)"
-            >{{ String(i + 1).padStart(2, '0') }}</span>
-            <StatusBadge :status="p.status" />
-          </div>
-          <h3
-            class="text-xl md:text-2xl font-medium leading-tight mb-2"
-            style="letter-spacing: -0.015em"
-          >
-            {{ p.name }}
-          </h3>
-          <p class="text-xs mb-6 leading-5" style="color: var(--color-mute); min-height: 2.5rem">
-            {{ p.tagline }}
-          </p>
-          <ProgressBar :value="p.progress" />
-          <p
-            class="text-xs mt-4 tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity"
-            style="color: var(--color-accent)"
-          >进入项目 →</p>
+    <section>
+      <header class="section-heading"><div><p class="eyebrow">PROJECTS</p><h2>正在推进的项目</h2></div><RouterLink to="/projects" class="btn-link text-xs">全部项目 ↗</RouterLink></header>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <RouterLink v-for="(p, i) in featuredProjects" :key="p.id" :to="`/projects/${p.id}`" class="project-preview glass group p-5">
+          <div class="flex items-center justify-between mb-5"><span class="project-number">{{ String(i + 1).padStart(2, '0') }}</span><StatusBadge :status="p.status" /></div>
+          <h3 class="text-lg mb-2">{{ p.name }}</h3>
+          <p class="text-xs leading-6 line-clamp-2 min-h-12 mb-5" style="color: var(--color-mute)">{{ p.tagline }}</p>
+          <div class="flex justify-between text-xs mb-2" style="color: var(--color-mute)"><span>项目进度</span><span class="tabular">{{ p.progress }}%</span></div>
+          <ProgressBar :value="p.progress" :show-label="false" />
         </RouterLink>
+        <RouterLink v-if="!featuredProjects.length" to="/projects" class="empty-panel col-span-full">还没有进行中的项目，创建第一个项目 ↗</RouterLink>
       </div>
     </section>
 
-    <!-- ============ Todo 区域：左侧历史 + 右侧今日看板 ============ -->
-    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 rise rise-2">
-      <!-- 左侧：历史待办日期列表 -->
-      <div class="lg:col-span-3 glass p-8">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-2xl font-medium">历史待办</h2>
-          <RouterLink to="/todos" class="btn-link text-sm">全部 →</RouterLink>
-        </div>
-
-        <ul class="space-y-1">
-          <li
-            v-for="g in historyByDate"
-            :key="g.date"
-          >
-            <RouterLink
-              :to="`/todos/by-date/${g.date}`"
-              class="flex items-center gap-3 py-2.5 px-2 rounded-lg transition-colors hover:bg-stone-100 group"
-            >
-              <span class="text-sm flex-1">{{ g.date }}</span>
-              <span v-if="g.nCount" class="text-xs px-1.5 py-0.5 rounded" style="background: var(--color-accent); color: var(--color-bg)">{{ g.nCount }}</span>
-              <span v-if="g.vCount" class="text-xs px-1.5 py-0.5 rounded" style="background: var(--color-ink); color: var(--color-bg)">{{ g.vCount }}</span>
-              <span class="text-xs tabular" style="color: var(--color-mute)">{{ g.count }}</span>
-            </RouterLink>
-          </li>
-          <li v-if="historyByDate.length === 0" class="py-8 text-sm text-center" style="color: var(--color-mute)">
-            暂无历史记录
-          </li>
-        </ul>
-      </div>
-
-      <!-- 右侧：今日看板（占满右侧） -->
-      <div class="lg:col-span-9 space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-2xl font-medium">今日待办 · {{ todayStr }}</h2>
-          <button class="btn-cta text-sm" @click="showAdd = true">+ 添加</button>
-        </div>
-
-        <!-- 添加表单 -->
-        <div v-if="showAdd" class="glass p-6 space-y-4">
-          <input
-            v-model="newTodoTitle"
-            @keyup.enter="addTodo"
-            placeholder="输入新待办，按 Enter 添加"
-            class="input-line w-full"
-            autofocus
-          />
-          <div class="flex items-center gap-3">
-            <span class="text-xs" style="color: var(--color-mute)">分配给：</span>
-            <button
-              @click="newTodoUser = 'u-n'"
-              class="text-xs px-3 py-1 rounded transition-colors"
-              :class="newTodoUser === 'u-n' ? 'ring-1 ring-accent' : ''"
-              :style="newTodoUser === 'u-n' ? 'background: var(--color-accent); color: var(--color-bg)' : 'background: var(--color-surface); color: var(--color-mute)'"
-            >n</button>
-            <button
-              @click="newTodoUser = 'u-v'"
-              class="text-xs px-3 py-1 rounded transition-colors"
-              :class="newTodoUser === 'u-v' ? 'ring-1 ring-accent' : ''"
-              :style="newTodoUser === 'u-v' ? 'background: var(--color-ink); color: var(--color-bg)' : 'background: var(--color-surface); color: var(--color-mute)'"
-            >v</button>
-            <button @click="addTodo" class="btn-cta text-sm ml-auto">添加</button>
-            <button @click="showAdd = false; newTodoTitle = ''" class="btn-link text-sm">取消</button>
+    <section>
+      <header class="section-heading"><div><p class="eyebrow">NEXT STEPS</p><h2>把计划变成进展</h2></div><RouterLink to="/todos" class="btn-link text-xs">全部待办 ↗</RouterLink></header>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <aside class="history-panel lg:col-span-3 glass p-5">
+          <div class="flex justify-between items-center mb-4"><h3 class="text-sm">历史待办</h3><span class="eyebrow">{{ allDoneTodos.length }} 已完成</span></div>
+          <ul class="space-y-1 max-h-80 overflow-auto">
+            <li v-for="g in historyByDate" :key="g.date">
+              <button class="history-date" :class="{ selected: selectedHistoryDate === g.date }" @click="selectHistoryDate(g.date)"><span>{{ g.date }}</span><span class="history-count">{{ g.count }}</span></button>
+            </li>
+            <li v-if="!historyByDate.length" class="py-6 text-xs text-center" style="color: var(--color-mute)">完成的待办会留在这里</li>
+          </ul>
+          <p class="text-xs mt-5 pt-4 border-t leading-6" style="color: var(--color-mute); border-color: var(--color-line)">回看已经完成的事，<br>也看见每一步的积累。</p>
+        </aside>
+        <div class="lg:col-span-9 min-w-0 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="workspace-tabs" role="group" aria-label="待办时间范围">
+              <button v-for="tab in [['today','今日待办'],['week','本周待办'],['range','时间段'],['history','历史待办']] as const" :key="tab[0]" :aria-pressed="todoTab === tab[0]" :class="{ active: todoTab === tab[0] }" @click="todoTab = tab[0]">{{ tab[1] }}</button>
+            </div>
+            <button v-if="todoTab !== 'history'" class="btn-cta text-xs" @click="showAdd = !showAdd">+ 添加待办</button>
+            <button v-else-if="selectedHistoryDate" class="btn-link text-xs" @click="clearHistoryDate">{{ selectedHistoryDate }} · 查看全部</button>
+          </div>
+          <div v-if="todoTab === 'range'" class="glass p-4 flex flex-wrap gap-3 items-end">
+            <label class="text-xs">筛选开始日期<input v-model="filterStart" type="date" :max="filterEnd" class="input-line" /></label>
+            <label class="text-xs">筛选结束日期<input v-model="filterEnd" type="date" :min="filterStart" class="input-line" /></label>
+            <p v-if="!filterStart || !filterEnd || filterStart > filterEnd" role="alert" class="text-xs text-red-600">请选择有效的起止日期</p>
+          </div>
+          <form v-if="showAdd" class="glass p-4 space-y-3" @submit.prevent="addTodo">
+            <p v-if="createError" role="alert" class="text-xs text-red-600">{{ createError }}</p>
+            <input v-model="newTodoTitle" placeholder="下一步要做什么？" aria-label="待办标题" class="input-line w-full" required autofocus />
+            <TodoScheduleFields v-model="newSchedule" :disabled="isCreating" />
+            <div class="flex flex-wrap items-center gap-3"><label class="text-xs" for="todo-owner">分配给</label><select id="todo-owner" v-model="newTodoUser" class="input-line w-auto text-xs"><option value="u-n">n</option><option value="u-v">v</option></select><button type="submit" :disabled="isCreating" class="btn-cta text-xs ml-auto">添加</button><button type="button" class="btn-link text-xs" @click="showAdd = false">取消</button></div>
+          </form>
+          <KanbanBoard v-if="todoTab !== 'history'" :tasks="tabTodos" :can-write="true" :is-home="true" force-kanban @task-update="onTaskUpdate" @task-delete="onTaskDelete" />
+          <div v-else class="grid sm:grid-cols-2 gap-3">
+            <TodoBlock v-for="task in tabTodos" :key="task.id" :task="task" :can-write="true" @update="onTaskUpdate" @delete="onTaskDelete" />
+            <p v-if="!tabTodos.length" class="empty-panel col-span-full">暂无历史记录</p>
           </div>
         </div>
-
-        <!-- 今日看板 -->
-        <KanbanBoard :tasks="allOpenKanbanTodos" :can-write="true" force-kanban @task-update="onTaskUpdate" @task-delete="onTaskDelete" />
       </div>
     </section>
 
-    <!-- ============ 三栏：todo / 研究 / 资料 ============ -->
-    <section class="grid grid-cols-1 md:grid-cols-12 gap-6 rise rise-3">
-      <!-- 研究 -->
-      <div class="md:col-span-6 glass p-8">
-        <h2 class="text-2xl font-medium mb-6">沉淀的思考</h2>
-        <ul class="space-y-6">
-          <li v-for="n in recentResearch" :key="n.id">
-            <RouterLink to="/research" class="block group">
-              <p class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">{{ n.stage }}</p>
-              <h3 class="text-lg font-medium mt-1.5 leading-snug" style="letter-spacing: -0.01em">
-                {{ n.title }}
-              </h3>
-              <p class="text-sm mt-1.5 line-clamp-2 leading-6" style="color: var(--color-ink-soft)">
-                {{ n.teaser }}
-              </p>
-            </RouterLink>
-          </li>
-          <li v-if="recentResearch.length === 0" class="text-sm" style="color: var(--color-mute)">
-            还没有研究 — 写下第一行。
-          </li>
-        </ul>
-        <RouterLink to="/research" class="btn-link text-sm mt-5 inline-block">查看全部研究 →</RouterLink>
-      </div>
-
-      <!-- 资料 -->
-      <div class="md:col-span-6 glass p-8">
-        <h2 class="text-2xl font-medium mb-6">最近收藏</h2>
-        <ul class="space-y-5">
-          <li v-for="r in resources.items.slice(0, 4)" :key="r.id" class="space-y-1">
-            <p class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">
-              {{ r.kind }}
-            </p>
-            <a
-              v-if="r.url"
-              :href="r.url"
-              target="_blank"
-              class="text-sm transition-opacity hover:opacity-60 block leading-snug"
-            >{{ r.title }} →</a>
-            <p v-else class="text-sm leading-snug">{{ r.title }}</p>
-          </li>
-        </ul>
-        <RouterLink to="/resources" class="btn-link text-sm mt-5 inline-block">查看全部资料 →</RouterLink>
-      </div>
-    </section>
-
-    <!-- ============ 引言 ============ -->
-    <section class="glass p-10 md:p-14 text-center rise rise-4">
-      <p class="text-2xl md:text-3xl font-medium leading-tight" style="letter-spacing: -0.02em">
-        每一颗安静的种子，<br />
-        都比一座喧哗的花园更值得被照看。
-      </p>
-      <p class="text-xs tracking-widest uppercase mt-5" style="color: var(--color-mute)">
-        —— 工作台卷首
-      </p>
+    <section class="grid md:grid-cols-2 gap-5">
+      <article class="glass p-5 sm:p-6">
+        <header class="section-heading"><div><p class="eyebrow">RESEARCH</p><h2>最近的思考</h2></div><RouterLink to="/research" class="btn-link text-xs">查看全部 ↗</RouterLink></header>
+        <RouterLink v-for="n in recentResearch" :key="n.id" to="/research" class="resource-preview"><span class="resource-icon">研</span><div class="min-w-0"><h3 class="text-sm truncate">{{ n.title }}</h3><p class="text-xs mt-1 line-clamp-1" style="color: var(--color-mute)">{{ n.teaser }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></RouterLink>
+        <p v-if="!recentResearch.length" class="py-5 text-sm" style="color: var(--color-mute)">记录一个想法，让它成为下一次行动的起点。</p>
+      </article>
+      <article class="glass p-5 sm:p-6">
+        <header class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>最近收藏</h2></div><RouterLink to="/resources" class="btn-link text-xs">资料库 ↗</RouterLink></header>
+        <div v-for="r in resources.items.slice(0, 3)" :key="r.id" class="resource-preview"><span class="resource-icon">藏</span><div class="min-w-0"><a v-if="r.url" :href="r.url" target="_blank" rel="noopener noreferrer" class="text-sm truncate block">{{ r.title }}</a><p v-else class="text-sm truncate">{{ r.title }}</p><p class="text-xs mt-1" style="color: var(--color-mute)">{{ r.kind }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></div>
+        <p v-if="!resources.items.length" class="py-5 text-sm" style="color: var(--color-mute)">把有用的链接和资料收藏到这里。</p>
+      </article>
     </section>
   </div>
 </template>

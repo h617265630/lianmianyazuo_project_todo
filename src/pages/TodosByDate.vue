@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
+import { overlapsRange } from '@/utils/todoSchedule'
+import TodoBlock from '@/components/todo-block.vue'
+import { useProjectsStore } from '@/stores/projects'
 import { api } from '@/api'
 import type { Todo, TodoStatus } from '@/types'
 
+const projects = useProjectsStore()
 const route = useRoute()
 const date = computed(() => route.params.date as string)
 
@@ -34,7 +38,7 @@ onMounted(async () => {
 })
 
 const dateTodos = computed(() =>
-  [...allTodos.value, ...doneTodos.value].filter(t => t.dueDate === date.value),
+  [...allTodos.value, ...doneTodos.value].filter(t => overlapsRange(t, date.value, date.value)),
 )
 
 const stats = computed(() => {
@@ -55,32 +59,16 @@ const byProject = computed(() => {
   return m
 })
 
-async function cycleStatus(t: Todo) {
-  const order: TodoStatus[] = ['todo', 'doing', 'done']
-  const i = order.indexOf(t.status)
-  const next = order[(i + 1) % order.length]
-  try {
-    await api.updateTodo(t.id, { status: next })
-    const idx = dateTodos.value.findIndex(x => x.id === t.id)
-    if (idx >= 0) {
-      const updated = { ...t, status: next }
-      if (next === 'done') {
-        allTodos.value = allTodos.value.filter(x => x.id !== t.id)
-        doneTodos.value.unshift(updated)
-      } else {
-        allTodos.value = allTodos.value.map(x => x.id === t.id ? updated : x)
-      }
-    }
-  } catch (e) {
-    console.warn('[todos-by-date] 更新失败', e)
-  }
+function onTaskUpdate(updated: Todo) {
+  allTodos.value = allTodos.value.filter(t => t.id !== updated.id)
+  doneTodos.value = doneTodos.value.filter(t => t.id !== updated.id)
+  if (updated.status === 'done') doneTodos.value.unshift(updated)
+  else allTodos.value.unshift(updated)
 }
-
-const priorityMark = (p: string) => p === 'high' ? '!!!' : p === 'medium' ? '!!' : '!'
-const priorityColor = (p: string) =>
-  p === 'high' ? 'var(--color-warn)' : p === 'medium' ? 'var(--color-ink)' : 'var(--color-mute)'
-
-const userLabel = (uid?: string) => uid === 'u-n' ? 'n' : uid === 'u-v' ? 'v' : ''
+function onTaskDelete(deleted: Todo) {
+  allTodos.value = allTodos.value.filter(t => t.id !== deleted.id)
+  doneTodos.value = doneTodos.value.filter(t => t.id !== deleted.id)
+}
 </script>
 
 <template>
@@ -132,47 +120,16 @@ const userLabel = (uid?: string) => uid === 'u-n' ? 'n' : uid === 'u-v' ? 'v' : 
       >
         <div class="flex items-baseline justify-between mb-5">
           <h2 class="text-xl font-medium">
-            {{ projectId === '__no-project__' ? '无关联项目' : projectId }}
+            {{ projectId === '__no-project__' ? '无关联项目' : projects.byId.get(projectId)?.name || '关联项目' }}
           </h2>
           <span class="text-xs tabular" style="color: var(--color-mute)">
             {{ ptodos.filter(t => t.status === 'done').length }} / {{ ptodos.length }} 完成
           </span>
         </div>
 
-        <ul class="space-y-2">
-          <li
-            v-for="t in ptodos"
-            :key="t.id"
-            class="flex items-center gap-3 py-2 group"
-          >
-            <button
-              @click="cycleStatus(t)"
-              class="shrink-0 text-sm hover:opacity-60 transition-opacity"
-              :style="{ color: priorityColor(t.priority) }"
-            >
-              <span class="font-mono">{{ priorityMark(t.priority) }}</span>
-            </button>
-            <span
-              class="flex-1 text-sm truncate"
-              :style="t.status === 'done' ? 'text-decoration: line-through; color: var(--color-mute)' : ''"
-            >
-              {{ t.title }}
-            </span>
-            <span v-if="userLabel(t.userId)" class="text-xs px-1.5 py-0.5 rounded shrink-0" :style="{ background: t.userId === 'u-n' ? 'var(--color-accent)' : 'var(--color-ink)', color: 'var(--color-bg)' }">
-              {{ userLabel(t.userId) }}
-            </span>
-            <span
-              v-if="t.status === 'doing'"
-              class="text-xs px-1.5 py-0.5 rounded shrink-0"
-              style="background: rgba(234,179,8,0.15); color: var(--color-warn)"
-            >进行中</span>
-            <span
-              v-if="t.status === 'done'"
-              class="text-xs px-1.5 py-0.5 rounded shrink-0"
-              style="background: rgba(34,197,94,0.15); color: #22c55e"
-            >完成</span>
-          </li>
-        </ul>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <TodoBlock v-for="task in ptodos" :key="task.id" :task="task" :can-write="true" @update="onTaskUpdate" @delete="onTaskDelete" />
+        </div>
       </div>
     </div>
 

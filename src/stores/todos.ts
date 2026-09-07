@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Todo, TodoStatus, TodoPriority, TodoDifficulty, TodoHorizon } from '@/types'
-import { api, type TodoInput } from '@/api'
+import { api, type TodoPatch, type TodoInput } from '@/api'
 import { seedTodos } from '@/data/seed'
 
 /** 短期 → 长期，用于分组与排序 */
@@ -77,7 +77,7 @@ export const useTodosStore = defineStore('todos', () => {
     return todo
   }
 
-  async function update(id: string, patch: Partial<Todo>) {
+  async function update(id: string, patch: TodoPatch) {
     const updated = await api.updateTodo(id, patch)
     const i = todos.value.findIndex(x => x.id === id)
     if (i >= 0) todos.value[i] = updated

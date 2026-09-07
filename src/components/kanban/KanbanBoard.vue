@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { watch, ref, computed } from 'vue'
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { watch, computed } from 'vue'
 import { useKanbanStore } from '@/stores/kanban'
 import KanbanColumn from './KanbanColumn.vue'
-import type { Todo, TodoStatus } from '@/types'
+import TodoBlock from '@/components/todo-block.vue'
+import type { Todo } from '@/types'
 
 const props = defineProps<{
   tasks: Todo[]
   canWrite?: boolean
   forceKanban?: boolean
+  isHome?: boolean
 }>()
 
 const kanban = useKanbanStore()
 
-const isHomeView = computed(() => kanban.currentViewId === 'home' || props.forceKanban)
+const isHomeView = computed(() => props.isHome || props.forceKanban)
 
 // Reload buckets whenever tasks or current view changes
 watch(
@@ -25,7 +26,7 @@ watch(
       kanban.loadBuckets(props.tasks)
     }
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 )
 
 const emit = defineEmits<{
@@ -55,32 +56,7 @@ function onTaskDelete(task: Todo) {
       <div class="flex-1 min-w-0">
         <div class="bg-white rounded-xl shadow-sm border border-stone-200 p-4">
           <div class="space-y-2">
-            <div
-              v-for="task in tasks"
-              :key="task.id"
-              class="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-100 hover:border-stone-300 cursor-pointer transition-colors"
-            >
-              <span class="text-xs text-stone-400 w-16">{{ task.horizon }}</span>
-              <span class="text-sm flex-1">{{ task.title }}</span>
-              <span
-                class="text-xs px-1.5 py-0.5 rounded"
-                :class="{
-                  'bg-amber-100 text-amber-700': task.priority === 'high',
-                  'bg-stone-100 text-stone-500': task.priority !== 'high',
-                }"
-              >
-                {{ task.priority }}
-              </span>
-              <select
-                class="text-xs border border-stone-200 rounded px-1 py-0.5 bg-white"
-                :value="task.status"
-                @change="e => kanban.moveTaskToBucket(task, (e.target as HTMLSelectElement).value as TodoStatus)"
-              >
-                <option value="todo">待办</option>
-                <option value="doing">进行中</option>
-                <option value="done">已完成</option>
-              </select>
-            </div>
+            <TodoBlock v-for="task in tasks" :key="task.id" :task="task" :can-write="canWrite" @update="onTaskUpdate" @delete="onTaskDelete" />
             <div v-if="tasks.length === 0" class="text-sm text-stone-300 text-center py-8">
               暂无任务
             </div>
@@ -97,6 +73,7 @@ function onTaskDelete(task: Todo) {
           :key="bucket.id"
           :bucket="bucket"
           :can-write="canWrite"
+          :is-home="isHome"
           @task-update="onTaskUpdate"
           @task-delete="onTaskDelete"
         />

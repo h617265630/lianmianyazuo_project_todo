@@ -1,11 +1,35 @@
+import { localDate, validateRange } from '../../src/utils/todoSchedule'
 import { Router } from 'express'
+import { normalizeTodoPatch } from '../validation/todo'
 import { eq, and, ne, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { todos, taskRelations, taskReminders, taskAttachments, taskComments } from '../db/schema'
+import { projects, todos, taskRelations, taskReminders, taskAttachments, taskComments } from '../db/schema'
 import { toTodo } from '../db/mappers'
 import { requireAuth } from '../middleware/auth'
 
 export const todosRouter = Router()
+
+// 关联项目与父待办必须属于当前用户；空项目表示独立待办。
+todosRouter.use(async (req, res, next) => {
+  if (!['POST', 'PATCH'].includes(req.method) || !/^\/[^/]*$/.test(req.path)) return next()
+  try {
+    let patch: Record<string, unknown>
+    try { patch = normalizeTodoPatch(req.body, req.method === 'POST') }
+    catch (error) { return res.status(400).json({ error: (error as Error).message }) }
+    if (req.method === 'PATCH' && !Object.keys(patch).length) return res.status(400).json({ error: '没有可更新的字段' })
+    if (patch.projectId) {
+      const rows = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, patch.projectId as string), eq(projects.userId, req.userId!))).limit(1)
+      if (!rows.length) return res.status(400).json({ error: '关联项目不存在或不属于当前用户' })
+    }
+    if (patch.parentId) {
+      if (patch.parentId === req.params.id || patch.parentId === req.path.slice(1)) return res.status(400).json({ error: '不能将待办自身设为父待办' })
+      const rows = await db.select({ id: todos.id }).from(todos).where(and(eq(todos.id, patch.parentId as string), eq(todos.userId, req.userId!))).limit(1)
+      if (!rows.length) return res.status(400).json({ error: '父待办不存在或不属于当前用户' })
+    }
+    req.body = patch
+    next()
+  } catch (error) { next(error) }
+})
 
 // 获取所有 open todos（首页用，公开）
 todosRouter.get('/open', async (_req, res, next) => {
@@ -53,7 +77,7 @@ todosRouter.get('/:id', requireAuth, async (req, res, next) => {
 // 创建 todo
 todosRouter.post('/', requireAuth, async (req, res, next) => {
   try {
-    const now = new Date().toISOString().slice(0, 10)
+    const now = localDate()
     const inserted = await db
       .insert(todos)
       .values({
@@ -90,6 +114,11 @@ todosRouter.patch('/:id', requireAuth, async (req, res, next) => {
       'startDate', 'hexColor',
     ] as const
     for (const f of fields) if (req.body[f] !== undefined) patch[f] = req.body[f]
+    const existing = await db.select().from(todos).where(and(eq(todos.id, String(req.params.id)), eq(todos.userId, req.userId!))).limit(1)
+    if (!existing[0]) return res.status(404).json({ error: 'todo not found' })
+    const merged = { ...existing[0], ...patch }
+    try { validateRange(merged.startDate as string | null, merged.dueDate as string | null) }
+    catch (error) { return res.status(400).json({ error: (error as Error).message }) }
     const updated = await db
       .update(todos)
       .set(patch)
@@ -103,11 +132,22 @@ todosRouter.patch('/:id', requireAuth, async (req, res, next) => {
 // 删除 todo
 todosRouter.delete('/:id', requireAuth, async (req, res, next) => {
   try {
-    await db
+    const deleted = await db
       .delete(todos)
       .where(and(eq(todos.id, String(req.params.id)), eq(todos.userId, req.userId!)))
+      .returning({ id: todos.id })
+    if (!deleted.length) return res.status(404).json({ error: '待办不存在或无权删除' })
     res.status(204).end()
   } catch (e) { next(e) }
+})
+
+// 子资源也必须先验证待办归属。
+todosRouter.use('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const owned = await db.select({ id: todos.id }).from(todos).where(and(eq(todos.id, String(req.params.id)), eq(todos.userId, req.userId!))).limit(1)
+    if (!owned.length) return res.status(404).json({ error: '待办不存在或无权访问' })
+    next()
+  } catch (error) { next(error) }
 })
 
 // ---------- Relations ----------
@@ -129,6 +169,8 @@ todosRouter.post('/:id/relations', requireAuth, async (req, res, next) => {
     if (!otherTaskId || !relationKind) {
       return res.status(400).json({ error: 'otherTaskId and relationKind are required' })
     }
+    const other = await db.select({ id: todos.id }).from(todos).where(and(eq(todos.id, String(otherTaskId)), eq(todos.userId, req.userId!))).limit(1)
+    if (!other.length) return res.status(400).json({ error: '关联待办不存在或无权访问' })
     const inserted = await db
       .insert(taskRelations)
       .values({
@@ -147,7 +189,7 @@ todosRouter.delete('/:id/relations/:relationId', requireAuth, async (req, res, n
   try {
     await db
       .delete(taskRelations)
-      .where(eq(taskRelations.id, String(req.params.relationId)))
+      .where(and(eq(taskRelations.id, String(req.params.relationId)), eq(taskRelations.taskId, String(req.params.id))))
     res.status(204).end()
   } catch (e) { next(e) }
 })
@@ -187,7 +229,7 @@ todosRouter.delete('/:id/reminders/:reminderId', requireAuth, async (req, res, n
   try {
     await db
       .delete(taskReminders)
-      .where(eq(taskReminders.id, String(req.params.reminderId)))
+      .where(and(eq(taskReminders.id, String(req.params.reminderId)), eq(taskReminders.taskId, String(req.params.id))))
     res.status(204).end()
   } catch (e) { next(e) }
 })
@@ -229,7 +271,7 @@ todosRouter.delete('/:id/attachments/:attachmentId', requireAuth, async (req, re
   try {
     await db
       .delete(taskAttachments)
-      .where(eq(taskAttachments.id, String(req.params.attachmentId)))
+      .where(and(eq(taskAttachments.id, String(req.params.attachmentId)), eq(taskAttachments.taskId, String(req.params.id))))
     res.status(204).end()
   } catch (e) { next(e) }
 })
@@ -271,7 +313,7 @@ todosRouter.delete('/:id/comments/:commentId', requireAuth, async (req, res, nex
   try {
     await db
       .delete(taskComments)
-      .where(eq(taskComments.id, String(req.params.commentId)))
+      .where(and(eq(taskComments.id, String(req.params.commentId)), eq(taskComments.taskId, String(req.params.id))))
     res.status(204).end()
   } catch (e) { next(e) }
 })

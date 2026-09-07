@@ -25,7 +25,7 @@ function apply(t: Theme) {
     /* ignore */
   }
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', t === 'dark' ? '#0b0f17' : '#f8fafc')
+  if (meta) meta.setAttribute('content', t === 'dark' ? '#19222d' : '#f2f5f8')
 }
 
 /** Sync DOM with the persisted theme before the app mounts (no flash). */

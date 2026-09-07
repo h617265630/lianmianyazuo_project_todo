@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useTodosStore } from '@/stores/todos'
 import { useProjectsStore } from '@/stores/projects'
 import KanbanBoard from '@/components/kanban/KanbanBoard.vue'
 import type { Todo } from '@/types'
 import SlideOver from '@/components/ui/SlideOver.vue'
+import TodoScheduleFields from '@/components/TodoScheduleFields.vue'
+import { schedulePreset, schedulePatch } from '@/utils/todoSchedule'
 import { api } from '@/api'
 
 const projects = useProjectsStore()
+const todosStore = useTodosStore()
 
 // Load all todos from API
 const allTodos = ref<Todo[]>([])
@@ -25,6 +29,7 @@ const selectedProjectId = ref<string | null>(null)
 
 const filteredTodos = computed(() => {
   if (!selectedProjectId.value) return allTodos.value
+  if (selectedProjectId.value === '__unassigned__') return allTodos.value.filter(t => !t.projectId)
   return allTodos.value.filter(t => t.projectId === selectedProjectId.value)
 })
 
@@ -52,58 +57,52 @@ const unassignedStats = computed(() => {
 
 // ── New todo form ──────────────────────────────────────────────────────────────
 const showAdd = ref(false)
+const createError = ref('')
+const isCreating = ref(false)
 const newTodoTitle = ref('')
 const newTodoProject = ref('')
 const newTodoPriority = ref<'low' | 'medium' | 'high'>('medium')
-const newTodoHorizon = ref<'today' | 'week' | 'month' | 'long'>('week')
+const newSchedule = ref(schedulePreset('today'))
 
 async function submitNewTodo() {
   const title = newTodoTitle.value.trim()
-  if (!title) return
+  if (!title || isCreating.value) return
+  isCreating.value = true
+  createError.value = ''
   try {
-    const created = await api.createPublicTodo({
+    const created = await todosStore.add({
       title,
-      userId: 'u-n',
       priority: newTodoPriority.value,
       difficulty: 'medium',
-      horizon: newTodoHorizon.value as any,
+      ...schedulePatch(newSchedule.value),
       projectId: newTodoProject.value || undefined,
     })
     allTodos.value.unshift(created)
     newTodoTitle.value = ''
     showAdd.value = false
   } catch (e) {
-    console.warn('[todos] 创建失败', e)
+    createError.value = e instanceof Error ? e.message : '创建失败'
+  } finally {
+    isCreating.value = false
   }
 }
 
 // ── Task update/delete ────────────────────────────────────────────────────────
 function onTaskUpdate(updated: Todo) {
   const idx = allTodos.value.findIndex(x => x.id === updated.id)
-  if (idx >= 0) {
-    if (updated.status === 'done') {
-      allTodos.value.splice(idx, 1)
-    } else {
-      allTodos.value[idx] = updated
-    }
-  }
+  if (idx >= 0) allTodos.value[idx] = updated
 }
 
-async function onTaskDelete(deleted: Todo) {
-  try {
-    await api.deleteTodo(deleted.id)
-    allTodos.value = allTodos.value.filter(x => x.id !== deleted.id)
-  } catch (e) {
-    console.warn('[todos] 删除失败', e)
-  }
+function onTaskDelete(deleted: Todo) {
+  allTodos.value = allTodos.value.filter(x => x.id !== deleted.id)
 }
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-4rem)] overflow-hidden gap-0">
+  <div class="workspace-layout flex overflow-hidden gap-0">
 
     <!-- 左侧项目列表 -->
-    <aside class="w-56 shrink-0 overflow-y-auto p-6 space-y-1" style="border-right: 1px solid var(--color-line)">
+    <aside class="workspace-sidebar w-56 shrink-0 overflow-y-auto p-5 space-y-1" style="border-right: 1px solid var(--color-line)">
       <div class="mb-6">
         <h2 class="text-lg font-medium mb-1">项目</h2>
         <p class="text-xs" style="color: var(--color-mute)">点击查看待办</p>
@@ -161,7 +160,7 @@ async function onTaskDelete(deleted: Todo) {
     </aside>
 
     <!-- 右侧看板 -->
-    <main class="flex-1 overflow-y-auto p-8 space-y-6">
+    <main class="workspace-content flex-1 min-w-0 overflow-y-auto p-5 lg:p-8 space-y-6">
       <header class="flex items-baseline justify-between">
         <div>
           <h1 class="text-3xl font-medium" style="letter-spacing: -0.03em">
@@ -192,6 +191,7 @@ async function onTaskDelete(deleted: Todo) {
     <!-- 新建 SlideOver -->
     <SlideOver :open="showAdd" title="新建待办" @close="showAdd = false">
       <form @submit.prevent="submitNewTodo" class="space-y-6">
+        <p v-if="createError" role="alert" class="text-sm text-red-600">{{ createError }}</p>
         <div>
           <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">标题</label>
           <input v-model="newTodoTitle" required class="input-line mt-2 text-lg" placeholder="一句话写清楚" autofocus />
@@ -218,24 +218,10 @@ async function onTaskDelete(deleted: Todo) {
             </button>
           </div>
         </div>
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">时间跨度</label>
-          <div class="flex gap-3 mt-2">
-            <button
-              v-for="h in [['today','今日'],['week','本周'],['month','本月'],['long','长期']]"
-              :key="h[0]"
-              type="button"
-              class="chip"
-              :class="{ 'is-active': newTodoHorizon === h[0] }"
-              @click="newTodoHorizon = h[0] as any"
-            >
-              {{ h[1] }}
-            </button>
-          </div>
-        </div>
+        <TodoScheduleFields v-model="newSchedule" :disabled="isCreating" />
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" class="btn-link" @click="showAdd = false">取消</button>
-          <button type="submit" class="btn-cta" :disabled="!newTodoTitle.trim()">保存</button>
+          <button type="submit" class="btn-cta" :disabled="!newTodoTitle.trim() || isCreating">保存</button>
         </div>
       </form>
     </SlideOver>

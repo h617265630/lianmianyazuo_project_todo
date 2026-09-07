@@ -1,3 +1,4 @@
+import { normalizeTodoPatch } from './validation/todo'
 import 'dotenv/config'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import cors from 'cors'
@@ -12,7 +13,14 @@ import { requireAuth } from './middleware/auth'
 import { seedDatabase } from './db/seed'
 
 const app = express()
-app.use(cors())
+const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? '*')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
+app.use(cors({
+  origin: allowedOrigins.includes('*') ? true : allowedOrigins,
+  credentials: false,
+}))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
@@ -52,22 +60,34 @@ app.get('/api/todos/done', async (_req, res, next) => {
 // Public: create a todo (for home page, accepts userId in body)
 app.post('/api/todos/public', async (req, res, next) => {
   try {
-    const { userId, title, priority, difficulty, horizon, dueDate } = req.body
+    try { req.body = { ...req.body, ...normalizeTodoPatch({ ...req.body, horizon: req.body.horizon || 'today' }, true) } }
+    catch (error) { return res.status(400).json({ error: (error as Error).message }) }
+    const { userId, title, priority, difficulty, horizon, startDate, dueDate, projectId } = req.body
     if (!userId || !title) {
       return res.status(400).json({ error: 'userId and title are required' })
     }
-    const now = new Date().toISOString().slice(0, 10)
+    // 用本地日期，避免跨时区把今天写成"昨天"
+    const d = new Date()
+    const now = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const { db } = await import('./db')
     const { todos } = await import('./db/schema')
     const { toTodo } = await import('./db/mappers')
+    if (projectId) {
+      const { projects } = await import('./db/schema')
+      const { eq, and } = await import('drizzle-orm')
+      const owned = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, String(projectId)), eq(projects.userId, String(userId)))).limit(1)
+      if (!owned.length) return res.status(400).json({ error: '关联项目不存在或不属于待办用户' })
+    }
     const inserted = await db.insert(todos).values({
       id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       userId: String(userId),
+      projectId: projectId || null,
       title: String(title).trim(),
       priority: priority || 'medium',
       difficulty: difficulty || 'medium',
       status: 'todo',
       horizon: horizon || 'today',
+      startDate: startDate || null,
       dueDate: dueDate || null,
       createdAt: now,
     }).returning()

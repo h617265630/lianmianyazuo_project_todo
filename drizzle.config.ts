@@ -6,6 +6,6 @@ export default defineConfig({
   out: './server/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://localhost:5432/lianmian',
+    url: process.env.DATABASE_URL ?? 'postgres://localhost:5432/lianmian_dev',
   },
 })

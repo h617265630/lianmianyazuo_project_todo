@@ -11,6 +11,8 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import KanbanBoard from '@/components/kanban/KanbanBoard.vue'
 import SlideOver from '@/components/ui/SlideOver.vue'
 import type { Todo, TodoStatus } from '@/types'
+import TodoScheduleFields from '@/components/TodoScheduleFields.vue'
+import { schedulePreset, schedulePatch } from '@/utils/todoSchedule'
 import { api } from '@/api'
 
 const route = useRoute()
@@ -42,15 +44,24 @@ const projectResearch = computed(() => projectId.value ? (research.byProject.get
 
 // 新增表单
 const newTodoTitle = ref('')
+const newTodoSchedule = ref(schedulePreset('week'))
+const todoError = ref('')
+const addingTodo = ref(false)
 const newResourceTitle = ref('')
 const newResourceUrl = ref('')
 const newResearchTitle = ref('')
 const newResearchTeaser = ref('')
 
 async function submitNewTodo() {
-  if (!newTodoTitle.value.trim() || !projectId.value) return
-  await todos.add({ title: newTodoTitle.value.trim(), projectId: projectId.value, priority: 'medium', difficulty: 'medium' })
-  newTodoTitle.value = ''
+  if (!newTodoTitle.value.trim() || !projectId.value || addingTodo.value) return
+  addingTodo.value = true
+  todoError.value = ''
+  try {
+    await todos.add({ title: newTodoTitle.value.trim(), projectId: projectId.value, priority: 'medium', difficulty: 'medium', ...schedulePatch(newTodoSchedule.value) })
+    newTodoTitle.value = ''
+  } catch (error) {
+    todoError.value = error instanceof Error ? error.message : '创建失败'
+  } finally { addingTodo.value = false }
 }
 
 async function submitNewResource() {
@@ -102,17 +113,17 @@ async function submitCreateProject() {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
+  <div class="workspace-layout flex overflow-hidden">
     <!-- 左侧：固定侧边栏（所有项目视图或选中项目视图） -->
     <ProjectSidebar :project-id="projectId" :active-tab="activeTab" @update:active-tab="t => { activeTab = t; if (projectId) $router.replace({ query: { tab: t } }) }" />
 
     <!-- 右侧主内容区 -->
-    <main class="flex-1 overflow-y-auto">
+    <main class="workspace-content flex-1 min-w-0 overflow-y-auto">
       <!-- 无项目选中：项目概览 -->
-      <div v-if="!projectId" class="p-8 lg:p-12 space-y-8 overflow-y-auto h-full">
+      <div v-if="!projectId" class="p-5 lg:p-8 space-y-8 overflow-y-auto h-full">
         <div class="flex items-baseline justify-between">
           <div>
-            <h1 class="text-4xl md:text-5xl font-medium" style="letter-spacing: -0.03em">项目管理</h1>
+            <h1 class="text-3xl font-medium" style="letter-spacing: -0.03em">项目管理</h1>
             <p class="text-base mt-3 leading-7" style="color: var(--color-ink-soft)">
               每一个项目都有自己的进度、所需条件、瓶颈、相关资料、学习到的关键知识与本地地址。
             </p>
@@ -167,7 +178,7 @@ async function submitCreateProject() {
       </div>
 
       <!-- 选中项目内容 -->
-      <div v-else-if="project" class="p-8 lg:p-12 space-y-8">
+      <div v-else-if="project" class="p-5 lg:p-8 space-y-8">
         <!-- 项目头部 -->
         <div class="flex items-start justify-between gap-6">
           <div class="flex-1 min-w-0">
@@ -192,9 +203,13 @@ async function submitCreateProject() {
 
         <!-- 任务 tab -->
         <section v-if="activeTab === 'tasks'">
-          <form @submit.prevent="submitNewTodo" class="flex gap-3 mb-6">
-            <input v-model="newTodoTitle" placeholder="给这个项目加一个待办…" class="input-line flex-1" />
-            <button type="submit" class="btn-cta">添加</button>
+          <form @submit.prevent="submitNewTodo" class="space-y-3 mb-6">
+            <TodoScheduleFields v-model="newTodoSchedule" :disabled="addingTodo" />
+            <p v-if="todoError" role="alert" class="text-xs text-red-600">{{ todoError }}</p>
+            <div class="flex gap-3">
+            <input v-model="newTodoTitle" required placeholder="给这个项目加一个待办…" class="input-line flex-1" />
+            <button type="submit" :disabled="addingTodo" class="btn-cta">添加</button>
+            </div>
           </form>
           <KanbanBoard :tasks="projectTodos" :can-write="true" />
         </section>

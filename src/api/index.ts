@@ -26,6 +26,12 @@ export type TodoInput = Omit<
   parentId?: string
   horizon?: TodoHorizon
 }
+export type TodoPatch = Omit<Partial<Todo>, 'projectId' | 'dueDate' | 'parentId' | 'startDate'> & {
+  projectId?: string | null
+  dueDate?: string | null
+  startDate?: string | null
+  parentId?: string | null
+}
 export type ResourceInput = Omit<ResourceItem, 'id' | 'addedAt' | 'status'> & {
   status?: ResourceItem['status']
 }
@@ -90,10 +96,10 @@ export const api = {
   listTodos: () => http.get<Todo[]>('/api/todos'),
   listOpenTodos: () => http.get<Todo[]>('/api/todos/open'),
   listDoneTodos: () => http.get<Todo[]>('/api/todos/done'),
-  createPublicTodo: (input: { userId: string; title: string; priority?: string; difficulty?: string; horizon?: TodoHorizon; dueDate?: string; projectId?: string }) =>
+  createPublicTodo: (input: { userId: string; title: string; priority?: string; difficulty?: string; horizon?: TodoHorizon; startDate?: string; dueDate?: string; projectId?: string }) =>
     http.post<Todo>('/api/todos/public', input),
   createTodo: (input: TodoInput) => http.post<Todo>('/api/todos', input),
-  updateTodo: (id: string, patch: Partial<Todo>) => http.patch<Todo>(`/api/todos/${id}`, patch),
+  updateTodo: (id: string, patch: TodoPatch) => http.patch<Todo>(`/api/todos/${id}`, patch),
   deleteTodo: (id: string) => http.del<void>(`/api/todos/${id}`),
 
   // research

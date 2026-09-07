@@ -1,85 +1,48 @@
-# 连绵雅座 · 个人项目工作台
+# 连绵雅座
 
-一个轻量的本地优先工作台，把散落在桌面上的**项目、待办与资料**收进一座安静的雅座，一处安放，一目了然。
-
-> 数据全部存在浏览器 `localStorage`，无后端，无远端依赖。
+以项目为核心的 Todo 和资源管理工作台。Todo 属于用户，可以独立存在，也可以关联项目。
 
 ## 技术栈
 
-沿用 path 项目 (vue-frontend) 的同一套栈：
-
-- **Vue 3** + **Vite** + **TypeScript**
-- **Tailwind CSS v4** (`@tailwindcss/vite`)
-- **Pinia** 状态管理
-- **Vue Router** 路由
-- **lucide-vue-next** 图标
-- 自建 UI 组件 (`ProgressBar` / `StatusBadge` / `Modal`)
-
-设计语言参照 path 项目的「暖色编辑风」：stone / amber 调色板、衬线大标题、克制留白。
+- Vue 3、Vite、TypeScript、Tailwind CSS、Pinia
+- Express API、Drizzle ORM、PostgreSQL
+- 开发环境使用本机 PostgreSQL；浏览器仅保存登录令牌和界面偏好
 
 ## 启动
 
 ```bash
-cd /Users/burn/Desktop/连绵雅座
 npm install
 npm run dev
 ```
 
-打开 <http://localhost:5173> 即可。
+打开 `http://localhost:5173`。数据库连接位于 `.env`，日常操作见[本地数据库说明](docs/local-database.md)。
 
-## 功能页面
+新环境可参考 `.env.example` 配置 PostgreSQL，并在空库执行 `npm run db:setup`。已有数据时只运行 `npm run db:migrate`，避免 seed 重置数据。
 
-| 路由 | 说明 |
+线上可以使用“Vercel 前端 + Render Free 后端 + Supabase PostgreSQL”。`render.yaml` 已准备好部署配置；Render 创建服务时会读取它。后端部署变量见 `.env.production.example`；先在后端执行 `npm run db:migrate`，再将 `vercel.json` 中的 API 地址替换为 Render 服务域名。不要把 `DATABASE_URL`、`JWT_SECRET` 或 Supabase service role key 放进前端。Railway 也可以继续使用，但当前项目的 Railway 试用额度已经到期。
+
+## 页面
+
+| 路由 | 内容 |
 | --- | --- |
-| `/` | 概览 — 当日问候、统计、Top 3 项目、最近 todo / 资料 |
-| `/projects` | 项目工作区 — 全部项目列表，按状态 / 关键字筛选 |
-| `/projects/:id` | 项目详情 — 进度、节点、条件、瓶颈、相关资料、学到的关键知识、本地路径、日志 |
-| `/todos` | 待办 — 按项目分组，可新建 / 切换状态 / 删除 |
-| `/resources` | 资料库 — 按项目归类 + 关键字 / 类型 / 标签 / 状态筛选 |
+| `/` | 项目入口、待办看板、历史待办、最近资料与思考 |
+| `/projects` | 项目列表 |
+| `/projects/:id` | 项目任务、相关资料、相关思考 |
+| `/todos` | 全部待办、按项目/未关联筛选 |
+| `/todos/by-date/:date` | 按日期和项目查看待办 |
+| `/resources` | 资料库 |
+| `/research` | 研究记录 |
+| `/docs` | 综合资料 |
 
-## 项目结构
+浅色/深色主题及原版/备用版 Todo 卡片可在顶部切换。
 
-```
-连绵雅座/
-├── index.html
-├── package.json
-├── vite.config.ts
-├── tsconfig.json
-├── postcss.config.js
-└── src/
-    ├── main.ts
-    ├── App.vue
-    ├── style.css           # Tailwind v4 + 主题变量 + 自定义类
-    ├── router.ts
-    ├── env.d.ts
-    ├── components/
-    │   ├── NavBar.vue      # 顶栏 + 项目下拉
-    │   ├── AppFooter.vue
-    │   └── ui/
-    │       ├── ProgressBar.vue
-    │       ├── StatusBadge.vue
-    │       └── Modal.vue
-    ├── pages/
-    │   ├── Home.vue
-    │   ├── Projects.vue
-    │   ├── ProjectDetail.vue
-    │   ├── Todos.vue
-    │   └── Resources.vue
-    ├── stores/
-    │   ├── projects.ts
-    │   ├── todos.ts
-    │   └── resources.ts
-    ├── data/seed.ts        # 初始示例数据
-    ├── types/index.ts
-    └── utils/format.ts
+## 检查
+
+```bash
+npm run db:check
+npm run typecheck
+npm run build
+node tests/todo-crud.mjs
 ```
 
-## 数据
-
-所有项目 / todo / 资料都保存在浏览器 `localStorage`，键：
-
-- `lianmian.projects.v1`
-- `lianmian.todos.v1`
-- `lianmian.resources.v1`
-
-清空浏览器缓存即可回到初始 seed 数据。
+CRUD 回归使用本地种子账号，只创建临时测试 Todo，并在测试结束后清理。关联规则与检查边界见 [Todo CRUD 检查记录](docs/todo-crud-review.md)。

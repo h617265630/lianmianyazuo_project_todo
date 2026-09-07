@@ -4,9 +4,9 @@ import AppFooter from '@/components/AppFooter.vue'
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-paper">
+  <div class="min-h-screen flex flex-col workspace-app">
     <NavBar />
-    <main class="flex-1 mx-auto w-full max-w-[1600px] px-6 lg:px-12 py-10">
+    <main class="flex-1 mx-auto w-full max-w-[1600px] w-full px-4 sm:px-6 lg:px-10 py-7">
       <RouterView v-slot="{ Component }">
         <Transition name="fade" mode="out-in">
           <component :is="Component" />

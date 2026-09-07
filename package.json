@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx server/db/seed.ts",
-    "db:setup": "drizzle-kit migrate && tsx server/db/seed.ts"
+    "db:setup": "drizzle-kit migrate && tsx server/db/seed.ts",
+    "db:check": "node scripts/db-check.mjs"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^3.1.0",
@@ -29,6 +30,7 @@
     "lucide-vue-next": "^0.554.0",
     "pg": "^8.23.0",
     "pinia": "^3.0.4",
+    "vercel": "^59.11.7",
     "vue": "^3.5.24",
     "vue-router": "^4.6.3"
   },

@@ -21,6 +21,8 @@ app.use(router)
 async function bootstrap() {
   const auth = useAuthStore(pinia)
   await auth.restore()
+  // 先挂载界面，再后台加载数据，避免远程数据库延迟阻塞首屏显示。
+  app.mount('#app')
   if (auth.isAuthenticated) {
     const projects = useProjectsStore(pinia)
     const todos = useTodosStore(pinia)
@@ -35,7 +37,6 @@ async function bootstrap() {
       insights.load(),
     ])
   }
-  app.mount('#app')
 }
 
 bootstrap()

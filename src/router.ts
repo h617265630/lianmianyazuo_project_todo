@@ -58,6 +58,12 @@ const router = createRouter({
       component: () => import('./pages/Resources.vue'),
       meta: { title: '资料库' },
     },
+    {
+      path: '/user',
+      name: 'user-management',
+      component: () => import('./pages/UserManagement.vue'),
+      meta: { title: '用户管理' },
+    },
   ],
   scrollBehavior() {
     return { top: 0 }

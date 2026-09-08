@@ -5,14 +5,16 @@ import { useProjectsStore } from '@/stores/projects'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoAppearance } from '@/composables/useTodoAppearance'
 import { useTheme } from '@/composables/useTheme'
-import { defaultAvatar } from '@/utils/avatar'
+import { defaultAvatar, getUploadedAvatar } from '@/utils/avatar'
 
 const { appearance, setAppearance } = useTodoAppearance()
 const route = useRoute()
 const router = useRouter()
 const projects = useProjectsStore()
 const auth = useAuthStore()
-const avatar = computed(() => auth.user ? defaultAvatar(auth.user.id, auth.user.name) : null)
+const avatarVersion = ref(0)
+const avatar = computed(() => { avatarVersion.value; return auth.user ? defaultAvatar(auth.user.id, auth.user.name) : null })
+const avatarImage = computed(() => { avatarVersion.value; return auth.user ? getUploadedAvatar(auth.user.id) : null })
 const { theme, set } = useTheme()
 const openMobile = ref(false)
 const projectsOpen = ref(false)
@@ -56,6 +58,7 @@ function onResize() {
 onMounted(() => {
   onResize()
   window.addEventListener('resize', onResize)
+  window.addEventListener('avatar-changed', () => { avatarVersion.value++ })
 })
 onUnmounted(() => window.removeEventListener('resize', onResize))
 </script>
@@ -134,9 +137,11 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 
         <label class="appearance-control">
           <span>待办样式</span>
-          <select aria-label="待办卡片样式" :value="appearance" @change="setAppearance(($event.target as HTMLSelectElement).value as 'original' | 'alternate')">
+          <select aria-label="待办卡片样式" :value="appearance" @change="setAppearance(($event.target as HTMLSelectElement).value as 'original' | 'alternate' | 'minimal' | 'midnight')">
             <option value="original">原版</option>
             <option value="alternate">备用版</option>
+            <option value="minimal">极简版</option>
+            <option value="midnight">夜幕版</option>
           </select>
         </label>
 
@@ -161,14 +166,15 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 
         <template v-if="auth.user">
           <div class="flex items-center gap-3 pl-2 border-l" style="border-color: var(--color-line)">
-            <span
+            <RouterLink
+              to="/user"
               class="user-avatar"
-              :style="{ backgroundColor: avatar?.background, color: avatar?.foreground }"
+              :style="{ backgroundColor: avatar?.background, color: avatar?.foreground, backgroundImage: avatarImage ? `url(${avatarImage})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }"
               :aria-label="`${auth.user.name}的默认头像`"
               role="img"
             >
-              {{ avatar?.label }}
-            </span>
+              <span v-if="!avatarImage">{{ avatar?.label }}</span>
+            </RouterLink>
             <span class="text-sm" style="color: var(--color-ink-soft)">{{ auth.user.name }}</span>
             <button class="btn-link text-xs" @click="logout">退出</button>
           </div>

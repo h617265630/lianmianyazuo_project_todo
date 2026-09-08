@@ -77,6 +77,7 @@ export interface Todo {
   repeatMode?: number        // 0=默认，1=每月，2=从完成日期
   startDate?: string
   hexColor?: string
+  tomatoMinutes?: number
   // --- 关联数据（按需加载）---
   relations?: TaskRelation[]
   reminders?: TaskReminder[]

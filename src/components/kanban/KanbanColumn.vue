@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useKanbanStore, type KanbanBucket } from '@/stores/kanban'
 import TodoBlock from '@/components/todo-block.vue'
 import type { Todo, TodoStatus } from '@/types'
@@ -16,6 +16,11 @@ const kanban = useKanbanStore()
 const isEditingTitle = ref(false)
 const editTitle = ref('')
 const isDraggingOver = ref(false)
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil(props.bucket.tasks.length / 8)))
+const visibleTasks = computed(() => props.bucket.tasks.slice((page.value - 1) * 8, page.value * 8))
+watch(pageCount, count => { if (page.value > count) page.value = count })
+watch(() => props.bucket.id, () => { page.value = 1 })
 
 function startEdit() {
   if (!props.canWrite) return
@@ -101,7 +106,7 @@ function onTaskDelete(task: Todo) {
     <!-- Cards -->
     <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[4rem]">
       <TodoBlock
-        v-for="task in bucket.tasks"
+        v-for="task in visibleTasks"
         :key="task.id"
         :task="task"
         :can-write="canWrite"
@@ -114,6 +119,11 @@ function onTaskDelete(task: Todo) {
       <div v-if="bucket.tasks.length === 0" class="text-xs text-stone-300 text-center py-4">
         暂无任务
       </div>
+    </div>
+    <div v-if="pageCount > 1" class="flex items-center justify-between px-2 pb-2 text-xs">
+      <button class="text-stone-500 hover:text-stone-800 disabled:opacity-30" :disabled="page === 1" @click="page--">←</button>
+      <span class="text-stone-400">{{ page }} / {{ pageCount }}</span>
+      <button class="text-stone-500 hover:text-stone-800 disabled:opacity-30" :disabled="page === pageCount" @click="page++">→</button>
     </div>
   </div>
 </template>

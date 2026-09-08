@@ -640,6 +640,9 @@ body { background-image: none; }
 .history-date:hover, .history-date.selected { background: var(--color-accent-soft); color: var(--color-accent); }
 .history-count { background: var(--color-paper); border-radius: 4px; padding: 1px 6px; font-size: 10px; }
 .workspace-tabs { display: flex; align-items: center; padding: 3px; border: 1px solid var(--color-line); background: var(--color-line-soft); border-radius: 8px; }
+.app-content.content-default { max-width: 1600px; }
+.app-content.content-wide80 { max-width: 80%; }
+.app-content.content-full { max-width: none; }
 .workspace-tabs button { padding: 7px 12px; font-size: 12px; border-radius: 5px; color: var(--color-mute); }
 .workspace-tabs button.active { background: var(--panel-bg); color: var(--color-ink); box-shadow: 0 1px 3px #0000000c; }
 .kanban-column { background: var(--color-line-soft); border: 1px solid var(--color-line); }

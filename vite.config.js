@@ -9,8 +9,10 @@ function resourcePagePlugin() {
         name: 'resource-page',
         configureServer(server) {
             server.middlewares.use('/resourcePage', (req, res) => {
-                const url = req.url.replace(/^\/resourcePage/, '') || '/index.html';
-                const filePath = path.resolve(__dirname, 'resourcePage', '.' + url);
+                const url = decodeURIComponent(req.url.replace(/^\/resourcePage/, '') || '/index.html');
+                const roots = [path.resolve(__dirname, 'resourcePage'), path.resolve(__dirname, 'public', 'resourcePage')];
+                const filePath = roots.map(root => path.resolve(root, '.' + url)).find(candidate => fs.existsSync(candidate));
+                if (!filePath || !fs.existsSync(filePath)) { res.statusCode = 404; res.end('Resource not found'); return; }
                 const stat = fs.statSync(filePath);
                 if (stat.isDirectory()) {
                     const indexPath = path.join(filePath, 'index.html');

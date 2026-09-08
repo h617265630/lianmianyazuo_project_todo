@@ -5,6 +5,7 @@ import { useProjectsStore } from '@/stores/projects'
 import { useTodosStore } from '@/stores/todos'
 import { useResourcesStore, kindLabels } from '@/stores/resources'
 import { useResearchStore } from '@/stores/research'
+import { useAuthStore } from '@/stores/auth'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import KanbanBoard from '@/components/kanban/KanbanBoard.vue'
@@ -19,6 +20,7 @@ const projects = useProjectsStore()
 const todos = useTodosStore()
 const resources = useResourcesStore()
 const research = useResearchStore()
+const auth = useAuthStore()
 
 const allOpenTodos = ref<Todo[]>([])
 const allDoneTodos = ref<Todo[]>([])
@@ -88,25 +90,39 @@ const featuredProjects = computed(() =>
     }),
 )
 
-const recentResearch = computed(() =>
-  research.items
-    .slice()
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 3),
-)
+const researchPage = ref(1)
+const recentResearchSource = computed(() => research.items.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))
+const researchPageCount = computed(() => Math.max(1, Math.ceil(recentResearchSource.value.length / 6)))
+const recentResearch = computed(() => recentResearchSource.value.slice((researchPage.value - 1) * 6, researchPage.value * 6))
+watch(researchPageCount, count => { if (researchPage.value > count) researchPage.value = count })
 
 const libraryTab = ref<'all' | 'github'>('all')
 const addPanel = ref<'resource' | 'research' | null>(null)
-const resourceDraft = ref<{ title: string; kind: ResourceKind; url: string; summary: string }>({ title: '', kind: 'article', url: '', summary: '' })
+const resourceDraft = ref<{ title: string; kind: ResourceKind; projectId: string; url: string; author: string; summary: string; tags: string; status: 'unread' | 'reading' | 'read' | 'archived' }>({ title: '', kind: 'article', projectId: '', url: '', author: '', summary: '', tags: '', status: 'unread' })
 const researchDraft = ref({ title: '', teaser: '', body: '' })
 const addError = ref('')
 const isAdding = ref(false)
-const recentLibrary = computed(() => {
+const libraryPage = ref(1)
+const recentLibrarySource = computed(() => {
   const source = libraryTab.value === 'github'
     ? resources.items.filter(r => r.kind === 'repo')
     : resources.items
-  return source.slice(0, 3)
+  return source
 })
+const libraryPageCount = computed(() => Math.max(1, Math.ceil(recentLibrarySource.value.length / 6)))
+const recentLibrary = computed(() => recentLibrarySource.value.slice((libraryPage.value - 1) * 6, libraryPage.value * 6))
+watch(libraryTab, () => { libraryPage.value = 1 })
+watch(libraryPageCount, count => { if (libraryPage.value > count) libraryPage.value = count })
+function resourceSourceLabel(resource: { kind: ResourceKind; url?: string }) {
+  if (resource.url) {
+    try {
+      const host = new URL(resource.url).hostname.toLowerCase()
+      if (host === 'github.com' || host.endsWith('.github.com')) return 'GitHub'
+      if (host === 'huggingface.co' || host.endsWith('.huggingface.co')) return 'Hugging Face'
+    } catch { /* invalid or local URL: use selected kind */ }
+  }
+  return kindLabels[resource.kind]
+}
 
 function openAdd(kind: 'resource' | 'research') {
   addError.value = ''
@@ -116,8 +132,8 @@ async function submitResource() {
   if (!resourceDraft.value.title.trim() || isAdding.value) return
   isAdding.value = true; addError.value = ''
   try {
-    await resources.add({ ...resourceDraft.value, projectId: undefined, author: undefined, tags: [] })
-    resourceDraft.value = { title: '', kind: 'article', url: '', summary: '' }
+    await resources.add({ ...resourceDraft.value, projectId: resourceDraft.value.projectId || undefined, author: resourceDraft.value.author.trim() || undefined, tags: resourceDraft.value.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) })
+    resourceDraft.value = { title: '', kind: 'article', projectId: '', url: '', author: '', summary: '', tags: '', status: 'unread' }
     addPanel.value = null
   } catch (e) { addError.value = e instanceof Error ? e.message : '添加失败' }
   finally { isAdding.value = false }
@@ -173,8 +189,9 @@ watch(showAdd, open => {
 })
 const createError = ref('')
 const isCreating = ref(false)
-const newTodoUser = ref<'u-n' | 'u-v'>('u-n')
 const newTodoTitle = ref('')
+const newTodoProjectId = ref('')
+const newTomatoMinutes = ref(0)
 
 async function addTodo() {
   const title = newTodoTitle.value.trim()
@@ -184,14 +201,19 @@ async function addTodo() {
   try {
     const created = await api.createPublicTodo({
       title,
-      userId: newTodoUser.value,
+      userId: auth.user?.id ?? 'u-n',
+      projectId: newTodoProjectId.value || undefined,
       priority: 'medium',
       difficulty: 'medium',
       ...schedulePatch(newSchedule.value),
+      tomatoMinutes: newTomatoMinutes.value || undefined,
     })
+    if (newTomatoMinutes.value) created.tomatoMinutes = newTomatoMinutes.value
     allOpenTodos.value.unshift(created)
     await todos.load()
     newTodoTitle.value = ''
+    newTodoProjectId.value = ''
+    newTomatoMinutes.value = 0
     showAdd.value = false
   } catch (e) {
     createError.value = e instanceof Error ? e.message : '添加失败'
@@ -277,11 +299,11 @@ function onTaskDelete(deleted: Todo) {
             <p v-if="createError" role="alert" class="text-xs text-red-600">{{ createError }}</p>
             <input v-model="newTodoTitle" placeholder="下一步要做什么？" aria-label="待办标题" class="input-line w-full" required autofocus />
             <TodoScheduleFields v-model="newSchedule" :disabled="isCreating" />
-            <div class="flex flex-wrap items-center gap-3"><label class="text-xs" for="todo-owner">分配给</label><select id="todo-owner" v-model="newTodoUser" class="input-line w-auto text-xs"><option value="u-n">n</option><option value="u-v">v</option></select><button type="submit" :disabled="isCreating" class="btn-cta text-xs ml-auto">添加</button><button type="button" class="btn-link text-xs" @click="showAdd = false">取消</button></div>
+            <div class="flex flex-wrap items-center gap-3"><label class="text-xs" for="todo-project">所属项目</label><select id="todo-project" v-model="newTodoProjectId" class="input-line w-auto text-xs"><option value="">无项目</option><option v-for="p in projects.projects" :key="p.id" :value="p.id">{{ p.name }}</option></select><label class="text-xs" for="tomato-duration">番茄待办</label><select id="tomato-duration" v-model.number="newTomatoMinutes" class="input-line w-auto text-xs"><option :value="0">不设置</option><option :value="25">25 分钟</option><option :value="45">45 分钟</option><option :value="60">1 小时</option></select><button type="submit" :disabled="isCreating" class="btn-cta text-xs ml-auto">添加</button><button type="button" class="btn-link text-xs" @click="showAdd = false">取消</button></div>
           </form>
           <KanbanBoard v-if="todoTab !== 'history'" :tasks="tabTodos" :can-write="true" :is-home="true" force-kanban @task-update="onTaskUpdate" @task-delete="onTaskDelete" />
           <div v-else class="grid sm:grid-cols-2 gap-3">
-            <TodoBlock v-for="task in tabTodos" :key="task.id" :task="task" :can-write="true" @update="onTaskUpdate" @delete="onTaskDelete" />
+            <TodoBlock v-for="task in tabTodos.slice(0, 8)" :key="task.id" :task="task" :can-write="true" @update="onTaskUpdate" @delete="onTaskDelete" />
             <p v-if="!tabTodos.length" class="empty-panel col-span-full">暂无历史记录</p>
           </div>
         </div>
@@ -295,13 +317,23 @@ function onTaskDelete(deleted: Todo) {
           <button :class="{ active: libraryTab === 'all' }" :aria-selected="libraryTab === 'all'" role="tab" @click="libraryTab = 'all'">全部</button>
           <button :class="{ active: libraryTab === 'github' }" :aria-selected="libraryTab === 'github'" role="tab" @click="libraryTab = 'github'">GitHub 项目</button>
         </div>
-        <div v-for="r in recentLibrary" :key="r.id" class="resource-preview"><span class="resource-icon">{{ r.kind === 'repo' ? 'GH' : '藏' }}</span><div class="min-w-0"><a v-if="r.url" :href="r.url" target="_blank" rel="noopener noreferrer" class="text-sm truncate block">{{ r.title }}</a><p v-else class="text-sm truncate">{{ r.title }}</p><p class="text-xs mt-1" style="color: var(--color-mute)">{{ kindLabels[r.kind] }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></div>
+        <div v-for="r in recentLibrary" :key="r.id" class="resource-preview"><span class="resource-icon">{{ resourceSourceLabel(r) === 'GitHub' ? 'GH' : resourceSourceLabel(r) === 'Hugging Face' ? 'HF' : '藏' }}</span><div class="min-w-0"><a v-if="r.url" :href="r.url" target="_blank" rel="noopener noreferrer" class="text-sm truncate block">{{ r.title }}</a><p v-else class="text-sm truncate">{{ r.title }}</p><p class="text-xs mt-1" style="color: var(--color-mute)">{{ resourceSourceLabel(r) }}</p><a v-if="r.url" :href="r.url" target="_blank" rel="noopener noreferrer" class="text-xs truncate block opacity-70 hover:opacity-100">{{ r.url }}</a></div><span class="ml-auto text-xs opacity-50">↗</span></div>
         <p v-if="!recentLibrary.length" class="py-5 text-sm" style="color: var(--color-mute)">{{ libraryTab === 'github' ? '还没有添加 GitHub 项目。' : '把有用的链接和资料收藏到这里。' }}</p>
+        <div v-if="libraryPageCount > 1" class="flex items-center justify-between pt-3 mt-2 border-t" style="border-color: var(--color-line)">
+          <button class="btn-link text-xs" :disabled="libraryPage === 1" @click="libraryPage--">← 上一页</button>
+          <span class="text-xs" style="color: var(--color-mute)">{{ libraryPage }} / {{ libraryPageCount }}</span>
+          <button class="btn-link text-xs" :disabled="libraryPage === libraryPageCount" @click="libraryPage++">下一页 →</button>
+        </div>
       </article>
       <article class="glass p-5 sm:p-6">
         <header class="section-heading"><div><p class="eyebrow">RESEARCH</p><h2>最近的思考</h2></div><div class="flex items-center gap-3"><button class="btn-link text-xs" @click="openAdd('research')">+ 添加思考</button><RouterLink to="/research" class="btn-link text-xs">查看全部 ↗</RouterLink></div></header>
         <RouterLink v-for="n in recentResearch" :key="n.id" to="/research" class="resource-preview"><span class="resource-icon">研</span><div class="min-w-0"><h3 class="text-sm truncate">{{ n.title }}</h3><p class="text-xs mt-1 line-clamp-1" style="color: var(--color-mute)">{{ n.teaser }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></RouterLink>
         <p v-if="!recentResearch.length" class="py-5 text-sm" style="color: var(--color-mute)">记录一个想法，让它成为下一次行动的起点。</p>
+        <div v-if="researchPageCount > 1" class="flex items-center justify-between pt-3 mt-2 border-t" style="border-color: var(--color-line)">
+          <button class="btn-link text-xs" :disabled="researchPage === 1" @click="researchPage--">← 上一页</button>
+          <span class="text-xs" style="color: var(--color-mute)">{{ researchPage }} / {{ researchPageCount }}</span>
+          <button class="btn-link text-xs" :disabled="researchPage === researchPageCount" @click="researchPage++">下一页 →</button>
+        </div>
       </article>
     </section>
     <SlideOver :open="addPanel === 'resource'" title="添加资料" @close="addPanel = null">
@@ -309,8 +341,12 @@ function onTaskDelete(deleted: Todo) {
         <p v-if="addError" class="text-xs text-red-600">{{ addError }}</p>
         <label class="block text-xs">标题<input v-model="resourceDraft.title" required class="input-line mt-2 w-full" placeholder="资料名称" /></label>
         <label class="block text-xs">类型<select v-model="resourceDraft.kind" class="input-line mt-2 w-full"><option value="article">文章</option><option value="repo">GitHub 项目</option><option value="paper">PDF / 论文</option><option value="doc">文件 / 文档</option><option value="video">视频</option><option value="book">书籍</option></select></label>
+        <label class="block text-xs">资源归属<select v-model="resourceDraft.projectId" class="input-line mt-2 w-full"><option value="">通用资料（不属于项目）</option><option v-for="p in projects.projects" :key="p.id" :value="p.id">{{ p.name }}</option></select></label>
         <label class="block text-xs">链接<input v-model="resourceDraft.url" type="url" class="input-line mt-2 w-full" placeholder="https://..." /></label>
+        <label class="block text-xs">作者<input v-model="resourceDraft.author" class="input-line mt-2 w-full" /></label>
         <label class="block text-xs">摘要<textarea v-model="resourceDraft.summary" rows="3" class="input-line mt-2 w-full" /></label>
+        <label class="block text-xs">标签<input v-model="resourceDraft.tags" class="input-line mt-2 w-full" placeholder="逗号分隔" /></label>
+        <label class="block text-xs">状态<select v-model="resourceDraft.status" class="input-line mt-2 w-full"><option value="unread">未读</option><option value="reading">在读</option><option value="read">已读</option><option value="archived">归档</option></select></label>
         <button class="btn-cta w-full" :disabled="isAdding">确认添加</button>
       </form>
     </SlideOver>

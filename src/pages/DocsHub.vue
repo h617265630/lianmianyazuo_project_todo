@@ -23,19 +23,50 @@ const microduckDocs = [
 ]
 
 const activeDoc = ref(route.query.doc as string || microduckDocs[0].file)
-const activeProject = ref<'microduck' | 'onepagebom'>('microduck')
+const activeProject = ref<'microduck' | 'onepagebom' | 'table'>('microduck')
+const tableFileName = ref('')
+const tableRows = ref<string[][]>([])
+const tableError = ref('')
 
-const BASE = 'resourcePage'
+const BASE = '/resourcePage'
 const currentUrl = computed(() => {
   if (activeProject.value === 'microduck') {
     return `${BASE}/microduck/${activeDoc.value}`
   } else {
-    return `${BASE}/一页bom/BOM_Board1_PCB_OnePage_V1_2026-09-06.html`
+    return `${BASE}/onepage-bom/index.html`
   }
 })
 
 function selectDoc(file: string) {
   activeDoc.value = file
+}
+
+function parseCsv(text: string) {
+  const rows: string[][] = []
+  let row: string[] = []; let cell = ''; let quoted = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '"') {
+      if (quoted && text[i + 1] === '"') { cell += '"'; i++ } else quoted = !quoted
+    } else if (ch === ',' && !quoted) { row.push(cell.trim()); cell = ''
+    } else if ((ch === '\n' || ch === '\r') && !quoted) {
+      if (ch === '\r' && text[i + 1] === '\n') i++
+      row.push(cell.trim()); if (row.some(Boolean)) rows.push(row)
+      row = []; cell = ''
+    } else cell += ch
+  }
+  if (cell || row.length) { row.push(cell.trim()); if (row.some(Boolean)) rows.push(row) }
+  return rows
+}
+async function importTable(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  tableError.value = ''
+  if (!/\.(csv|tsv)$/i.test(file.name)) { tableError.value = '目前支持 CSV 或 TSV 文件'; return }
+  const text = await file.text()
+  tableRows.value = parseCsv(file.name.toLowerCase().endsWith('.tsv') ? text.replace(/\t/g, ',') : text)
+  tableFileName.value = file.name
+  activeProject.value = 'table'
 }
 </script>
 
@@ -59,6 +90,7 @@ function selectDoc(file: string) {
             :style="activeProject !== 'onepagebom' ? 'color: var(--color-mute)' : ''"
             @click="activeProject = 'onepagebom'"
           >一页 BOM</button>
+          <label class="flex-1 text-xs py-1.5 rounded text-center cursor-pointer transition-colors" :class="activeProject === 'table' ? 'bg-stone-800 text-white' : 'bg-stone-100'">上传表格<input type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" class="sr-only" @change="importTable" /></label>
         </div>
       </div>
 
@@ -86,15 +118,22 @@ function selectDoc(file: string) {
           BOM_Board1_PCB_OnePage_V1_2026-09-06.html ↗
         </a>
       </div>
+      <div v-if="tableError" class="px-5 pb-4 text-xs text-red-600">{{ tableError }}</div>
     </aside>
 
     <!-- 右侧内容区 -->
     <main class="flex-1 overflow-hidden">
       <iframe
+        v-if="activeProject !== 'table'"
         :src="currentUrl"
         class="w-full h-full border-0"
         title="文档内容"
       />
+      <div v-else class="h-full overflow-auto p-6" style="background: var(--panel-bg)">
+        <div class="flex items-center justify-between gap-4 mb-5"><div><p class="eyebrow">TABLE</p><h2 class="text-xl font-medium mt-1">{{ tableFileName }}</h2></div><label class="btn-cta text-xs cursor-pointer">更换文件<input type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" class="sr-only" @change="importTable" /></label></div>
+        <p v-if="!tableRows.length" class="empty-panel">请选择一个 CSV 或 TSV 文件</p>
+        <div v-else class="overflow-auto border rounded-lg" style="border-color: var(--color-line)"><table class="min-w-full text-sm"><thead><tr><th v-for="(cell, i) in tableRows[0]" :key="i" class="text-left px-3 py-2 font-medium border-b whitespace-nowrap" style="border-color: var(--color-line); background: var(--color-line-soft)">{{ cell || `列 ${i + 1}` }}</th></tr></thead><tbody><tr v-for="(row, ri) in tableRows.slice(1)" :key="ri"><td v-for="(cell, ci) in tableRows[0]" :key="ci" class="px-3 py-2 border-b whitespace-pre-wrap" style="border-color: var(--color-line)">{{ row[ci] ?? '' }}</td></tr></tbody></table></div>
+      </div>
     </main>
   </div>
 </template>

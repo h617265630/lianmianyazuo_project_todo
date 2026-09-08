@@ -68,3 +68,15 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
     next(e)
   }
 })
+
+authRouter.patch('/me', requireAuth, async (req, res, next) => {
+  try {
+    const name = req.body.name === undefined ? undefined : String(req.body.name).trim()
+    const email = req.body.email === undefined ? undefined : String(req.body.email).trim().toLowerCase()
+    if (name !== undefined && !name) return res.status(400).json({ error: '昵称不能为空' })
+    if (email !== undefined && !email) return res.status(400).json({ error: '邮箱不能为空' })
+    const updated = await db.update(users).set({ ...(name !== undefined ? { name } : {}), ...(email !== undefined ? { email } : {}) }).where(eq(users.id, req.userId!)).returning()
+    if (!updated[0]) return res.status(404).json({ error: '用户不存在' })
+    res.json(toUser(updated[0]))
+  } catch (e) { next(e) }
+})

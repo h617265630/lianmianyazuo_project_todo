@@ -36,11 +36,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateProfile(input: { name?: string; email?: string }) {
+    const updated = await api.updateMe(input)
+    user.value = updated
+    return updated
+  }
+
   function logout() {
     user.value = null
     token.value = null
     setToken(null)
   }
 
-  return { user, token, isAuthenticated, register, login, restore, logout }
+  return { user, token, isAuthenticated, register, login, restore, updateProfile, logout }
 })

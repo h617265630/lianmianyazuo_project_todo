@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { useTodoAppearance } from '@/composables/useTodoAppearance'
 import { useAuthStore } from '@/stores/auth'
 import { useTodosStore } from '@/stores/todos'
@@ -109,6 +109,28 @@ const deleteDialog = ref<HTMLDialogElement | null>(null)
 const isDeleting = ref(false)
 const deleteError = ref('')
 const todosStore = useTodosStore()
+const tomatoRemaining = ref(0)
+const tomatoRunning = ref(false)
+let tomatoTimer: ReturnType<typeof setInterval> | null = null
+const tomatoLabel = computed(() => {
+  const m = Math.floor(tomatoRemaining.value / 60).toString().padStart(2, '0')
+  const s = (tomatoRemaining.value % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+})
+function startTomato() {
+  if (!props.task.tomatoMinutes || tomatoRunning.value) return
+  tomatoRemaining.value = props.task.tomatoMinutes * 60
+  tomatoRunning.value = true
+  tomatoTimer = setInterval(() => {
+    tomatoRemaining.value--
+    if (tomatoRemaining.value <= 0) {
+      if (tomatoTimer) clearInterval(tomatoTimer)
+      tomatoTimer = null; tomatoRunning.value = false
+      window.alert(`番茄待办完成：${props.task.title}`)
+    }
+  }, 1000)
+}
+onUnmounted(() => { if (tomatoTimer) clearInterval(tomatoTimer) })
 
 function openDeleteDialog() {
   if (!canEdit.value) return
@@ -136,7 +158,7 @@ async function confirmDelete() {
 <template>
   <div
     class="todo-block group/todo bg-white rounded-lg shadow-sm border border-stone-200 p-3 cursor-pointer hover:shadow-md transition-shadow relative"
-    :class="{ 'todo-block--alternate': appearance === 'alternate' }"
+    :class="`todo-block--${appearance}`"
     :data-priority="task.priority"
     @click="emit('click', task)"
   >
@@ -226,6 +248,7 @@ async function confirmDelete() {
       >
         {{ task.percentDone }}%
       </span>
+      <button v-if="task.tomatoMinutes" type="button" class="ml-auto text-xs rounded px-2 py-1 border border-orange-200 text-orange-700 hover:bg-orange-50" @click.stop="startTomato">{{ tomatoRunning ? tomatoLabel : '开始番茄' }}</button>
     </div>
     <div class="mt-2" @click.stop>
       <select v-if="canEdit" aria-label="关联项目" :value="task.projectId || ''" :disabled="isSaving" class="w-full text-xs border border-stone-200 rounded px-1 py-1 bg-white" @change="e => savePatch({ projectId: (e.target as HTMLSelectElement).value || null })">
@@ -283,4 +306,26 @@ async function confirmDelete() {
 .todo-block--alternate > p.text-sm { font-size: 14px; font-weight: 550; line-height: 1.7; margin-block: 12px; }
 .todo-block--alternate > .mt-2 { padding-top: 9px; border-top: 1px solid var(--color-line-soft); }
 .todo-block--alternate select { border-color: var(--color-line); background-color: var(--panel-bg); color: var(--color-ink-soft); }
+.todo-block--minimal {
+  border: 0;
+  border-left: 4px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--panel-bg);
+  box-shadow: none;
+  padding: 14px 16px;
+}
+.todo-block--minimal:hover { box-shadow: 0 5px 14px rgb(30 40 50 / 8%); }
+.todo-block--minimal > p.text-sm { font-size: 13px; letter-spacing: .01em; }
+.todo-block--minimal select { border: 0; background: transparent; padding-left: 0; }
+.todo-block--midnight {
+  color: #e7eef5;
+  border-color: #334454;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1b2935, #243746);
+  box-shadow: 0 8px 20px rgb(16 28 38 / 18%);
+}
+.todo-block--midnight > p.text-sm { color: #edf4f8; font-weight: 550; }
+.todo-block--midnight > p.text-xs { color: #aabcc8; }
+.todo-block--midnight select { border-color: #496071; background: #1c2d3a; color: #dce8ef; }
+.todo-block--midnight .todo-delete { color: #9eb2bf; }
 </style>

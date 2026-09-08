@@ -53,6 +53,7 @@ export const api = {
   login: (input: { email: string; password: string }) =>
     http.post<AuthResponse>('/api/auth/login', input),
   me: () => http.get<User>('/api/auth/me'),
+  updateMe: (input: { name?: string; email?: string }) => http.patch<User>('/api/auth/me', input),
 
   // projects
   listProjects: () => http.get<Project[]>('/api/projects'),
@@ -96,7 +97,7 @@ export const api = {
   listTodos: () => http.get<Todo[]>('/api/todos'),
   listOpenTodos: () => http.get<Todo[]>('/api/todos/open'),
   listDoneTodos: () => http.get<Todo[]>('/api/todos/done'),
-  createPublicTodo: (input: { userId: string; title: string; priority?: string; difficulty?: string; horizon?: TodoHorizon; startDate?: string; dueDate?: string; projectId?: string }) =>
+  createPublicTodo: (input: { userId: string; title: string; priority?: string; difficulty?: string; horizon?: TodoHorizon; startDate?: string; dueDate?: string; projectId?: string; tomatoMinutes?: number }) =>
     http.post<Todo>('/api/todos/public', input),
   createTodo: (input: TodoInput) => http.post<Todo>('/api/todos', input),
   updateTodo: (id: string, patch: TodoPatch) => http.patch<Todo>(`/api/todos/${id}`, patch),

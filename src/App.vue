@@ -7,12 +7,14 @@ import { useProjectsStore } from '@/stores/projects'
 import { useTodosStore } from '@/stores/todos'
 import { useResourcesStore } from '@/stores/resources'
 import { useResearchStore } from '@/stores/research'
+import { useContentWidth } from '@/composables/useContentWidth'
 
 const route = useRoute()
 const projects = useProjectsStore()
 const todos = useTodosStore()
 const resources = useResourcesStore()
 const research = useResearchStore()
+const { contentWidth } = useContentWidth()
 
 async function ensureData() {
   await Promise.all([
@@ -30,7 +32,7 @@ watch(() => route.fullPath, ensureData)
 <template>
   <div class="min-h-screen flex flex-col workspace-app">
     <NavBar />
-    <main class="flex-1 mx-auto w-full max-w-[1600px] w-full px-4 sm:px-6 lg:px-10 py-7">
+    <main class="app-content flex-1 mx-auto w-full px-4 sm:px-6 lg:px-10 py-7" :class="`content-${contentWidth}`">
       <RouterView v-slot="{ Component, route }">
         <Suspense timeout="0">
           <component :is="Component" :key="route.fullPath" />

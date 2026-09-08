@@ -57,8 +57,10 @@ function buildObjectives(oRows: ObjectiveRow[], krRows: KeyResultRow[]): Map<str
   return byProject
 }
 
-async function loadProjects(userId: string) {
-  const pRows = await db.select().from(projects).where(eq(projects.userId, userId))
+async function loadProjects(userId?: string) {
+  const pRows = userId
+    ? await db.select().from(projects).where(eq(projects.userId, userId))
+    : await db.select().from(projects)
   if (pRows.length === 0) return []
   const pIds = pRows.map(p => p.id)
   const [mRows, cRows, oRows] = await Promise.all([
@@ -138,7 +140,7 @@ async function ownsKeyResult(userId: string, keyResultId: string) {
 
 projectsRouter.get('/', requireAuth, async (req, res, next) => {
   try {
-    res.json(await loadProjects(req.userId!))
+    res.json(await loadProjects())
   } catch (e) {
     next(e)
   }

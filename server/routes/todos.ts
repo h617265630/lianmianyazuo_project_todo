@@ -47,10 +47,10 @@ todosRouter.get('/done', async (_req, res, next) => {
   } catch (e) { next(e) }
 })
 
-// 获取当前用户的 todos
+// 获取所有用户的 todos：内容公共可见，写入和修改仍按用户权限校验。
 todosRouter.get('/', requireAuth, async (req, res, next) => {
   try {
-    const rows = await db.select().from(todos).where(eq(todos.userId, req.userId!))
+    const rows = await db.select().from(todos)
     res.json(rows.map(toTodo))
   } catch (e) { next(e) }
 })

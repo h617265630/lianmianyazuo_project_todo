@@ -9,7 +9,7 @@ export const resourcesRouter = Router()
 
 resourcesRouter.get('/', requireAuth, async (req, res, next) => {
   try {
-    const rows = await db.select().from(resources).where(eq(resources.userId, req.userId!))
+    const rows = await db.select().from(resources)
     res.json(rows.map(toResource))
   } catch (e) {
     next(e)

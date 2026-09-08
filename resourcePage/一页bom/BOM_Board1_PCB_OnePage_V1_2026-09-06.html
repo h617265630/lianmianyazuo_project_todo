@@ -105,6 +105,9 @@
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+        #bomTable tbody tr { cursor: pointer; transition: background-color .15s ease; }
+        #bomTable tbody tr:hover { background: #f7fbff; }
+        #bomTable tbody tr.row-marked { background: #eaf4ff; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -326,6 +329,14 @@
 
         let sortCol = 0;
         let sortDir = 'asc';
+        const MARKS_KEY = 'onepage-bom.marked-rows';
+        const markedRows = new Set(JSON.parse(localStorage.getItem(MARKS_KEY) || '[]'));
+
+        function toggleMarked(rowId, element) {
+            if (markedRows.has(rowId)) { markedRows.delete(rowId); element.classList.remove('row-marked'); }
+            else { markedRows.add(rowId); element.classList.add('row-marked'); }
+            localStorage.setItem(MARKS_KEY, JSON.stringify([...markedRows]));
+        }
         let filteredData = [...bomData];
 
         const headers = document.querySelectorAll('th');
@@ -387,7 +398,8 @@
                 const supplierPart = row[8] || '-';
                 const supplierLink = row[8] ? `<a href="https://www.lcsc.com/search?q=${row[8]}" target="_blank" class="supplier-link">${row[8]}</a>` : '-';
 
-                return `<tr>
+                const marked = markedRows.has(row[0]);
+                return `<tr tabindex="0" class="${marked ? 'row-marked' : ''}" onclick="toggleMarked('${row[0]}', this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleMarked('${row[0]}', this)}" aria-label="点击标记物料行">
                     <td>${row[0]}</td>
                     <td class="qty">${row[1]}</td>
                     <td>${isNC ? '<span class="nc-tag">NC</span>' : row[2]}</td>

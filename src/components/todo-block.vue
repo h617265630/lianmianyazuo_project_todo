@@ -117,15 +117,41 @@ const tomatoLabel = computed(() => {
   const s = (tomatoRemaining.value % 60).toString().padStart(2, '0')
   return `${m}:${s}`
 })
+function playTomatoAlarm() {
+  const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AudioContextClass) return
+  const context = new AudioContextClass()
+  const now = context.currentTime
+  ;[0, 0.45, 0.9].forEach(offset => {
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, now + offset)
+    gain.gain.setValueAtTime(0.0001, now + offset)
+    gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.03)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.3)
+    oscillator.connect(gain).connect(context.destination)
+    oscillator.start(now + offset)
+    oscillator.stop(now + offset + 0.32)
+  })
+  window.setTimeout(() => context.close(), 1600)
+}
 function startTomato() {
-  if (!props.task.tomatoMinutes || tomatoRunning.value) return
-  tomatoRemaining.value = props.task.tomatoMinutes * 60
+  if (!props.task.tomatoMinutes) return
+  if (tomatoRunning.value) {
+    if (tomatoTimer) clearInterval(tomatoTimer)
+    tomatoTimer = null
+    tomatoRunning.value = false
+    return
+  }
+  if (tomatoRemaining.value <= 0) tomatoRemaining.value = props.task.tomatoMinutes * 60
   tomatoRunning.value = true
   tomatoTimer = setInterval(() => {
     tomatoRemaining.value--
     if (tomatoRemaining.value <= 0) {
       if (tomatoTimer) clearInterval(tomatoTimer)
       tomatoTimer = null; tomatoRunning.value = false
+      playTomatoAlarm()
       window.alert(`番茄待办完成：${props.task.title}`)
     }
   }, 1000)
@@ -248,7 +274,7 @@ async function confirmDelete() {
       >
         {{ task.percentDone }}%
       </span>
-      <button v-if="task.tomatoMinutes" type="button" class="ml-auto text-xs rounded px-2 py-1 border border-orange-200 text-orange-700 hover:bg-orange-50" @click.stop="startTomato">{{ tomatoRunning ? tomatoLabel : '开始番茄' }}</button>
+      <button v-if="task.tomatoMinutes" type="button" class="ml-auto text-xs rounded px-2 py-1 border border-orange-200 text-orange-700 hover:bg-orange-50" @click.stop="startTomato">{{ tomatoRunning ? tomatoLabel : (tomatoRemaining > 0 ? `${tomatoLabel} · 继续` : '开始番茄') }}</button>
     </div>
     <div class="mt-2" @click.stop>
       <select v-if="canEdit" aria-label="关联项目" :value="task.projectId || ''" :disabled="isSaving" class="w-full text-xs border border-stone-200 rounded px-1 py-1 bg-white" @change="e => savePatch({ projectId: (e.target as HTMLSelectElement).value || null })">

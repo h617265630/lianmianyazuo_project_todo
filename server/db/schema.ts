@@ -326,6 +326,28 @@ export const resources = pgTable('resources', {
   status: resourceStatusEnum('status').notNull().default('unread'),
 })
 
+// 一页 BOM 清单及用户标记状态
+export const bomItems = pgTable('bom_items', {
+  id: text('id').primaryKey(),
+  bomKey: text('bom_key').notNull(),
+  lineNo: text('line_no').notNull(),
+  quantity: integer('quantity').notNull().default(0),
+  description: text('description').notNull(),
+  designators: text('designators').notNull().default(''),
+  package: text('package').notNull().default(''),
+  value: text('value').notNull().default(''),
+  manufacturerPart: text('manufacturer_part').notNull().default(''),
+  manufacturer: text('manufacturer').notNull().default(''),
+  supplierPart: text('supplier_part').notNull().default(''),
+  supplier: text('supplier').notNull().default(''),
+})
+
+export const bomItemMarks = pgTable('bom_item_marks', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bomItemId: text('bom_item_id').notNull().references(() => bomItems.id, { onDelete: 'cascade' }),
+  markedAt: text('marked_at').notNull(),
+}, (t) => [primaryKey({ columns: [t.userId, t.bomItemId] })])
+
 export const insights = pgTable('insights', {
   id: text('id').primaryKey(),
   userId: text('user_id')

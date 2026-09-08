@@ -21,6 +21,8 @@ npm run dev
 
 线上可以使用“Vercel 前端 + Render Free 后端 + Supabase PostgreSQL”。`render.yaml` 已准备好部署配置；Render 创建服务时会读取它。后端部署变量见 `.env.production.example`；先在后端执行 `npm run db:migrate`，再将 `vercel.json` 中的 API 地址替换为 Render 服务域名。不要把 `DATABASE_URL`、`JWT_SECRET` 或 Supabase service role key 放进前端。Railway 也可以继续使用，但当前项目的 Railway 试用额度已经到期。
 
+如果只有两个人使用，也可以完全本地运行应用、只使用线上 Supabase 数据库。复制 `.env.supabase-local.example` 为 `.env`，两台电脑使用同一个 `DATABASE_URL`、`DATABASE_SSL=true` 和 `JWT_SECRET`，然后各自运行 `npm run dev`。这种模式不需要 Railway 或 Render；两台电脑的数据会通过 Supabase 共享。数据库迁移只在任意一台电脑执行一次：`npm run db:migrate`。
+
 ## 页面
 
 | 路由 | 内容 |

@@ -1,8 +1,8 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes: [
     {
       path: '/login',
@@ -77,6 +77,10 @@ router.beforeEach(to => {
 router.afterEach(to => {
   const t = (to.meta.title as string) || ''
   document.title = t ? `${t} · 连绵雅座` : '连绵雅座'
+})
+
+router.onError(error => {
+  console.error('[router] 页面加载失败', error)
 })
 
 export default router

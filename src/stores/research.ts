@@ -2,10 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ResearchNote, ResearchStage } from '@/types'
 import { api, type ResearchInput } from '@/api'
-import { seedResearch } from '@/data/seed'
 
 export const useResearchStore = defineStore('research', () => {
   const items = ref<ResearchNote[]>([])
+  const isLoaded = ref(false)
+  let loadingPromise: Promise<void> | null = null
 
   const allTags = computed(() => {
     const set = new Set<string>()
@@ -33,12 +34,13 @@ export const useResearchStore = defineStore('research', () => {
   })
 
   async function load() {
-    try {
-      items.value = await api.listResearch()
-    } catch (e) {
-      console.warn('[research] 后端不可用，回退到 seed 数据', e)
-      items.value = seedResearch
-    }
+    if (loadingPromise) return loadingPromise
+    loadingPromise = (async () => {
+      try { items.value = await api.listResearch() }
+      catch (e) { console.warn('[research] 后端不可用，未加载示例数据', e); items.value = [] }
+      finally { isLoaded.value = true; loadingPromise = null }
+    })()
+    return loadingPromise
   }
 
   async function add(input: ResearchInput) {
@@ -63,7 +65,7 @@ export const useResearchStore = defineStore('research', () => {
     await update(id, { stage })
   }
 
-  return { items, allTags, byProject, stats, load, add, update, remove, setStage }
+  return { items, isLoaded, allTags, byProject, stats, load, add, update, remove, setStage }
 })
 
 export const stageLabels: Record<ResearchStage, string> = {

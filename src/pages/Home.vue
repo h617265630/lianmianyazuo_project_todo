@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProjectsStore } from '@/stores/projects'
 import { useTodosStore } from '@/stores/todos'
-import { useResourcesStore } from '@/stores/resources'
+import { useResourcesStore, kindLabels } from '@/stores/resources'
 import { useResearchStore } from '@/stores/research'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -11,8 +11,9 @@ import KanbanBoard from '@/components/kanban/KanbanBoard.vue'
 import TodoScheduleFields from '@/components/TodoScheduleFields.vue'
 import { localDate, weekRange, schedulePreset, schedulePatch, overlapsRange } from '@/utils/todoSchedule'
 import TodoBlock from '@/components/todo-block.vue'
+import SlideOver from '@/components/ui/SlideOver.vue'
 import { api } from '@/api'
-import type { Todo } from '@/types'
+import type { Todo, ResourceKind } from '@/types'
 
 const projects = useProjectsStore()
 const todos = useTodosStore()
@@ -21,6 +22,7 @@ const research = useResearchStore()
 
 const allOpenTodos = ref<Todo[]>([])
 const allDoneTodos = ref<Todo[]>([])
+const allScheduledTodos = computed(() => [...allOpenTodos.value, ...allDoneTodos.value])
 
 // 历史待办：按日期分组（取 createdAt 最近的 30 天）
 const historyByDate = computed(() => {
@@ -93,14 +95,52 @@ const recentResearch = computed(() =>
     .slice(0, 3),
 )
 
+const libraryTab = ref<'all' | 'github'>('all')
+const addPanel = ref<'resource' | 'research' | null>(null)
+const resourceDraft = ref<{ title: string; kind: ResourceKind; url: string; summary: string }>({ title: '', kind: 'article', url: '', summary: '' })
+const researchDraft = ref({ title: '', teaser: '', body: '' })
+const addError = ref('')
+const isAdding = ref(false)
+const recentLibrary = computed(() => {
+  const source = libraryTab.value === 'github'
+    ? resources.items.filter(r => r.kind === 'repo')
+    : resources.items
+  return source.slice(0, 3)
+})
+
+function openAdd(kind: 'resource' | 'research') {
+  addError.value = ''
+  addPanel.value = kind
+}
+async function submitResource() {
+  if (!resourceDraft.value.title.trim() || isAdding.value) return
+  isAdding.value = true; addError.value = ''
+  try {
+    await resources.add({ ...resourceDraft.value, projectId: undefined, author: undefined, tags: [] })
+    resourceDraft.value = { title: '', kind: 'article', url: '', summary: '' }
+    addPanel.value = null
+  } catch (e) { addError.value = e instanceof Error ? e.message : '添加失败' }
+  finally { isAdding.value = false }
+}
+async function submitResearch() {
+  if (!researchDraft.value.title.trim() || isAdding.value) return
+  isAdding.value = true; addError.value = ''
+  try {
+    await research.add({ ...researchDraft.value, projectIds: [], tags: [] })
+    researchDraft.value = { title: '', teaser: '', body: '' }
+    addPanel.value = null
+  } catch (e) { addError.value = e instanceof Error ? e.message : '添加失败' }
+  finally { isAdding.value = false }
+}
+
 // 今日和本周按实际安排的时间段筛选（含起止日期）
 const todayTodos = computed(() => {
-  return allOpenTodos.value.filter(t => overlapsRange(t, todayStr.value, todayStr.value))
+  return allScheduledTodos.value.filter(t => overlapsRange(t, todayStr.value, todayStr.value))
 })
 
 // 本周待办
 const weekTodos = computed(() => {
-  return allOpenTodos.value.filter(t => overlapsRange(t, currentWeek.value.startDate, currentWeek.value.dueDate))
+  return allScheduledTodos.value.filter(t => overlapsRange(t, currentWeek.value.startDate, currentWeek.value.dueDate))
 })
 
 // Tab: 今日/本周/历史
@@ -117,7 +157,7 @@ function clearHistoryDate() {
 const tabTodos = computed(() => {
   if (todoTab.value === 'today') return todayTodos.value
   if (todoTab.value === 'week') return weekTodos.value
-  if (todoTab.value === 'range') return allOpenTodos.value.filter(t => overlapsRange(t, filterStart.value, filterEnd.value))
+  if (todoTab.value === 'range') return allScheduledTodos.value.filter(t => overlapsRange(t, filterStart.value, filterEnd.value))
   // history：按选中日期过滤；没选就显示全部已完成
   if (selectedHistoryDate.value) {
     return allDoneTodos.value.filter(t => t.createdAt === selectedHistoryDate.value)
@@ -250,15 +290,38 @@ function onTaskDelete(deleted: Todo) {
 
     <section class="grid md:grid-cols-2 gap-5">
       <article class="glass p-5 sm:p-6">
-        <header class="section-heading"><div><p class="eyebrow">RESEARCH</p><h2>最近的思考</h2></div><RouterLink to="/research" class="btn-link text-xs">查看全部 ↗</RouterLink></header>
+        <header class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>最近的收藏</h2></div><div class="flex items-center gap-3"><button class="btn-link text-xs" @click="openAdd('resource')">+ 添加资料</button><RouterLink to="/resources" class="btn-link text-xs">资料库 ↗</RouterLink></div></header>
+        <div class="workspace-tabs mb-3" role="tablist" aria-label="收藏类型">
+          <button :class="{ active: libraryTab === 'all' }" :aria-selected="libraryTab === 'all'" role="tab" @click="libraryTab = 'all'">全部</button>
+          <button :class="{ active: libraryTab === 'github' }" :aria-selected="libraryTab === 'github'" role="tab" @click="libraryTab = 'github'">GitHub 项目</button>
+        </div>
+        <div v-for="r in recentLibrary" :key="r.id" class="resource-preview"><span class="resource-icon">{{ r.kind === 'repo' ? 'GH' : '藏' }}</span><div class="min-w-0"><a v-if="r.url" :href="r.url" target="_blank" rel="noopener noreferrer" class="text-sm truncate block">{{ r.title }}</a><p v-else class="text-sm truncate">{{ r.title }}</p><p class="text-xs mt-1" style="color: var(--color-mute)">{{ kindLabels[r.kind] }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></div>
+        <p v-if="!recentLibrary.length" class="py-5 text-sm" style="color: var(--color-mute)">{{ libraryTab === 'github' ? '还没有添加 GitHub 项目。' : '把有用的链接和资料收藏到这里。' }}</p>
+      </article>
+      <article class="glass p-5 sm:p-6">
+        <header class="section-heading"><div><p class="eyebrow">RESEARCH</p><h2>最近的思考</h2></div><div class="flex items-center gap-3"><button class="btn-link text-xs" @click="openAdd('research')">+ 添加思考</button><RouterLink to="/research" class="btn-link text-xs">查看全部 ↗</RouterLink></div></header>
         <RouterLink v-for="n in recentResearch" :key="n.id" to="/research" class="resource-preview"><span class="resource-icon">研</span><div class="min-w-0"><h3 class="text-sm truncate">{{ n.title }}</h3><p class="text-xs mt-1 line-clamp-1" style="color: var(--color-mute)">{{ n.teaser }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></RouterLink>
         <p v-if="!recentResearch.length" class="py-5 text-sm" style="color: var(--color-mute)">记录一个想法，让它成为下一次行动的起点。</p>
       </article>
-      <article class="glass p-5 sm:p-6">
-        <header class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>最近收藏</h2></div><RouterLink to="/resources" class="btn-link text-xs">资料库 ↗</RouterLink></header>
-        <div v-for="r in resources.items.slice(0, 3)" :key="r.id" class="resource-preview"><span class="resource-icon">藏</span><div class="min-w-0"><a v-if="r.url" :href="r.url" target="_blank" rel="noopener noreferrer" class="text-sm truncate block">{{ r.title }}</a><p v-else class="text-sm truncate">{{ r.title }}</p><p class="text-xs mt-1" style="color: var(--color-mute)">{{ r.kind }}</p></div><span class="ml-auto text-xs opacity-50">↗</span></div>
-        <p v-if="!resources.items.length" class="py-5 text-sm" style="color: var(--color-mute)">把有用的链接和资料收藏到这里。</p>
-      </article>
     </section>
+    <SlideOver :open="addPanel === 'resource'" title="添加资料" @close="addPanel = null">
+      <form class="space-y-5" @submit.prevent="submitResource">
+        <p v-if="addError" class="text-xs text-red-600">{{ addError }}</p>
+        <label class="block text-xs">标题<input v-model="resourceDraft.title" required class="input-line mt-2 w-full" placeholder="资料名称" /></label>
+        <label class="block text-xs">类型<select v-model="resourceDraft.kind" class="input-line mt-2 w-full"><option value="article">文章</option><option value="repo">GitHub 项目</option><option value="paper">PDF / 论文</option><option value="doc">文件 / 文档</option><option value="video">视频</option><option value="book">书籍</option></select></label>
+        <label class="block text-xs">链接<input v-model="resourceDraft.url" type="url" class="input-line mt-2 w-full" placeholder="https://..." /></label>
+        <label class="block text-xs">摘要<textarea v-model="resourceDraft.summary" rows="3" class="input-line mt-2 w-full" /></label>
+        <button class="btn-cta w-full" :disabled="isAdding">确认添加</button>
+      </form>
+    </SlideOver>
+    <SlideOver :open="addPanel === 'research'" title="添加思考" @close="addPanel = null">
+      <form class="space-y-5" @submit.prevent="submitResearch">
+        <p v-if="addError" class="text-xs text-red-600">{{ addError }}</p>
+        <label class="block text-xs">标题<input v-model="researchDraft.title" required class="input-line mt-2 w-full" placeholder="这次思考是什么？" /></label>
+        <label class="block text-xs">摘要<input v-model="researchDraft.teaser" class="input-line mt-2 w-full" placeholder="一句话概括" /></label>
+        <label class="block text-xs">正文<textarea v-model="researchDraft.body" rows="7" class="input-line mt-2 w-full" placeholder="记录你的想法、发现或方法" /></label>
+        <button class="btn-cta w-full" :disabled="isAdding">确认添加</button>
+      </form>
+    </SlideOver>
   </div>
 </template>

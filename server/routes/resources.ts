@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq, and } from 'drizzle-orm'
 import { db } from '../db'
-import { resources } from '../db/schema'
+import { projects, resources } from '../db/schema'
 import { toResource } from '../db/mappers'
 import { requireAuth } from '../middleware/auth'
 
@@ -18,6 +18,14 @@ resourcesRouter.get('/', requireAuth, async (req, res, next) => {
 
 resourcesRouter.post('/', requireAuth, async (req, res, next) => {
   try {
+    const projectId = req.body.projectId || null
+    if (projectId) {
+      const project = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, String(projectId)), eq(projects.userId, req.userId!)))
+      if (!project[0]) return res.status(400).json({ error: 'project not found or not owned by user' })
+    }
     const now = new Date().toISOString().slice(0, 10)
     const inserted = await db
       .insert(resources)
@@ -26,7 +34,7 @@ resourcesRouter.post('/', requireAuth, async (req, res, next) => {
         userId: req.userId!,
         title: String(req.body.title ?? '').trim(),
         kind: req.body.kind ?? 'note',
-        projectId: req.body.projectId || null,
+        projectId,
         url: req.body.url || null,
         author: req.body.author || null,
         tags: Array.isArray(req.body.tags) ? req.body.tags : [],
@@ -43,6 +51,13 @@ resourcesRouter.post('/', requireAuth, async (req, res, next) => {
 
 resourcesRouter.patch('/:id', requireAuth, async (req, res, next) => {
   try {
+    if (req.body.projectId !== undefined && req.body.projectId) {
+      const project = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, String(req.body.projectId)), eq(projects.userId, req.userId!)))
+      if (!project[0]) return res.status(400).json({ error: 'project not found or not owned by user' })
+    }
     const patch: Record<string, unknown> = {}
     const fields = ['title', 'kind', 'projectId', 'url', 'author', 'tags', 'summary', 'status'] as const
     for (const f of fields) if (req.body[f] !== undefined) patch[f] = req.body[f]

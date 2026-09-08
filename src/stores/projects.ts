@@ -2,10 +2,12 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Project, ProjectStatus, ProjectPhase } from '@/types'
 import { api } from '@/api'
-import { seedProjects } from '@/data/seed'
 
 export const useProjectsStore = defineStore('projects', () => {
   const projects = ref<Project[]>([])
+  const isLoaded = ref(false)
+  const isLoading = ref(false)
+  let loadingPromise: Promise<void> | null = null
 
   const byId = computed(() => {
     const m = new Map<string, Project>()
@@ -27,12 +29,14 @@ export const useProjectsStore = defineStore('projects', () => {
   })
 
   async function load() {
-    try {
-      projects.value = await api.listProjects()
-    } catch (e) {
-      console.warn('[projects] 后端不可用，回退到 seed 数据', e)
-      projects.value = seedProjects
-    }
+    if (loadingPromise) return loadingPromise
+    isLoading.value = true
+    loadingPromise = (async () => {
+      try { projects.value = await api.listProjects() }
+      catch (e) { console.warn('[projects] 后端不可用，未加载示例数据', e); projects.value = [] }
+      finally { isLoaded.value = true; isLoading.value = false; loadingPromise = null }
+    })()
+    return loadingPromise
   }
 
   function replace(id: string, updated: Project) {
@@ -82,6 +86,8 @@ export const useProjectsStore = defineStore('projects', () => {
 
   return {
     projects,
+    isLoaded,
+    isLoading,
     byId,
     activeProjects,
     stats,

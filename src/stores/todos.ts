@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Todo, TodoStatus, TodoPriority, TodoDifficulty, TodoHorizon } from '@/types'
 import { api, type TodoPatch, type TodoInput } from '@/api'
-import { seedTodos } from '@/data/seed'
 
 /** 短期 → 长期，用于分组与排序 */
 export const horizonOrder: TodoHorizon[] = ['today', 'week', 'month', 'long']
@@ -16,6 +15,8 @@ export const horizonLabels: Record<TodoHorizon, string> = {
 
 export const useTodosStore = defineStore('todos', () => {
   const todos = ref<Todo[]>([])
+  const isLoaded = ref(false)
+  let loadingPromise: Promise<void> | null = null
 
   const byProject = computed(() => {
     const m = new Map<string, Todo[]>()
@@ -63,12 +64,13 @@ export const useTodosStore = defineStore('todos', () => {
   }
 
   async function load() {
-    try {
-      todos.value = await api.listTodos()
-    } catch (e) {
-      console.warn('[todos] 后端不可用，回退到 seed 数据', e)
-      todos.value = seedTodos
-    }
+    if (loadingPromise) return loadingPromise
+    loadingPromise = (async () => {
+      try { todos.value = await api.listTodos() }
+      catch (e) { console.warn('[todos] 后端不可用，未加载示例数据', e); todos.value = [] }
+      finally { isLoaded.value = true; loadingPromise = null }
+    })()
+    return loadingPromise
   }
 
   async function add(input: TodoInput) {
@@ -95,6 +97,7 @@ export const useTodosStore = defineStore('todos', () => {
 
   return {
     todos,
+    isLoaded,
     roots,
     children,
     byProject,

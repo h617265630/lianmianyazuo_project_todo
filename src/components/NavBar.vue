@@ -5,12 +5,14 @@ import { useProjectsStore } from '@/stores/projects'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoAppearance } from '@/composables/useTodoAppearance'
 import { useTheme } from '@/composables/useTheme'
+import { defaultAvatar } from '@/utils/avatar'
 
 const { appearance, setAppearance } = useTodoAppearance()
 const route = useRoute()
 const router = useRouter()
 const projects = useProjectsStore()
 const auth = useAuthStore()
+const avatar = computed(() => auth.user ? defaultAvatar(auth.user.id, auth.user.name) : null)
 const { theme, set } = useTheme()
 const openMobile = ref(false)
 const projectsOpen = ref(false)
@@ -159,6 +161,14 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 
         <template v-if="auth.user">
           <div class="flex items-center gap-3 pl-2 border-l" style="border-color: var(--color-line)">
+            <span
+              class="user-avatar"
+              :style="{ backgroundColor: avatar?.background, color: avatar?.foreground }"
+              :aria-label="`${auth.user.name}的默认头像`"
+              role="img"
+            >
+              {{ avatar?.label }}
+            </span>
             <span class="text-sm" style="color: var(--color-ink-soft)">{{ auth.user.name }}</span>
             <button class="btn-link text-xs" @click="logout">退出</button>
           </div>
@@ -254,5 +264,17 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 .theme-toggle button.is-active {
   background: var(--color-accent);
   color: var(--on-accent);
+}
+
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  user-select: none;
 }
 </style>

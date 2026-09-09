@@ -34,6 +34,8 @@ function resourcePagePlugin() {
                         '.jpg': 'image/jpeg',
                         '.svg': 'image/svg+xml',
                         '.md': 'text/markdown',
+                        '.pdf': 'application/pdf',
+                        '.csv': 'text/csv',
                     };
                     res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
                     res.setHeader('Cache-Control', 'no-cache');

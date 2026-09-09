@@ -35,7 +35,7 @@ watch(() => route.fullPath, ensureData)
     <main class="app-content flex-1 mx-auto w-full px-4 sm:px-6 lg:px-10 py-7" :class="`content-${contentWidth}`">
       <RouterView v-slot="{ Component, route }">
         <Suspense timeout="0">
-          <component :is="Component" :key="route.fullPath" />
+          <component :is="Component" :key="route.name === 'docs' ? route.path : route.fullPath" />
           <template #fallback>
             <div class="route-loading" role="status" aria-live="polite">
               <span class="route-loading-dot" aria-hidden="true" />

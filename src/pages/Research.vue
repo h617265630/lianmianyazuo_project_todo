@@ -33,53 +33,6 @@ const visible = computed(() => {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 })
 
-const showCompose = ref(false)
-const draft = ref<{
-  title: string
-  teaser: string
-  body: string
-  projectIds: string[]
-  tags: string
-  stage: ResearchStage
-}>({
-  title: '',
-  teaser: '',
-  body: '',
-  projectIds: [],
-  tags: '',
-  stage: 'seedling',
-})
-
-const draftTags = computed(() =>
-  draft.value.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean),
-)
-
-function toggleProject(id: string) {
-  if (draft.value.projectIds.includes(id)) {
-    draft.value.projectIds = draft.value.projectIds.filter(x => x !== id)
-  } else {
-    draft.value.projectIds = [...draft.value.projectIds, id]
-  }
-}
-
-function resetDraft() {
-  draft.value = { title: '', teaser: '', body: '', projectIds: [], tags: '', stage: 'seedling' }
-}
-
-function submit() {
-  if (!draft.value.title.trim()) return
-  research.add({
-    title: draft.value.title.trim(),
-    teaser: draft.value.teaser.trim(),
-    body: draft.value.body.trim(),
-    projectIds: draft.value.projectIds,
-    tags: draftTags.value,
-    stage: draft.value.stage,
-  })
-  resetDraft()
-  showCompose.value = false
-}
-
 function projectName(id: string) {
   return projects.byId.get(id)?.name ?? id
 }
@@ -108,9 +61,9 @@ function fmtBody(text: string) {
         </p>
       </div>
       <div class="md:col-span-4 flex md:justify-end">
-        <button class="btn-cta" @click="showCompose = true">
+        <RouterLink to="/research/new" class="btn-cta">
           写一篇研究
-        </button>
+        </RouterLink>
       </div>
     </header>
 
@@ -240,51 +193,5 @@ function fmtBody(text: string) {
       </div>
     </SlideOver>
 
-    <SlideOver :open="showCompose" title="写一篇研究" @close="showCompose = false">
-      <form @submit.prevent="submit" class="space-y-7">
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">标题</label>
-          <input v-model="draft.title" required class="input-line mt-2 text-lg" placeholder="一句话命名这篇研究" />
-        </div>
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">摘要</label>
-          <input v-model="draft.teaser" class="input-line mt-2" placeholder="一句话讲清楚这篇研究要回答什么" />
-        </div>
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">正文</label>
-          <textarea v-model="draft.body" rows="10" class="input-line mt-2" placeholder="用空行分段…" />
-        </div>
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">关联项目</label>
-          <div class="flex flex-wrap gap-3 mt-2 text-sm">
-            <button
-              v-for="p in projects.projects"
-              :key="p.id"
-              type="button"
-              @click="toggleProject(p.id)"
-              class="chip"
-              :class="{ 'is-active': draft.projectIds.includes(p.id) }"
-            >{{ p.name }}</button>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">阶段</label>
-          <select v-model="draft.stage" class="input-line mt-2 w-40">
-            <option v-for="(label, k) in stageLabels" :key="k" :value="k">{{ label }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs tracking-widest uppercase" style="color: var(--color-mute)">标签</label>
-          <input v-model="draft.tags" class="input-line mt-2" placeholder="逗号分隔,例如: ESP32, E-Ink, 低功耗" />
-          <div v-if="draftTags.length" class="flex flex-wrap gap-2 mt-2 text-xs" style="color: var(--color-mute)">
-            <span v-for="t in draftTags" :key="t">#{{ t }}</span>
-          </div>
-        </div>
-        <div class="flex items-baseline justify-between pt-2">
-          <button type="button" class="btn-link" @click="showCompose = false">取消</button>
-          <button type="submit" class="btn-cta" :disabled="!draft.title.trim()">保存</button>
-        </div>
-      </form>
-    </SlideOver>
   </div>
 </template>

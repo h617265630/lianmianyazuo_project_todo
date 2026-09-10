@@ -53,6 +53,12 @@ const router = createRouter({
       meta: { title: '研究' },
     },
     {
+      path: '/research/new',
+      name: 'research-new',
+      component: () => import('./pages/ResearchCompose.vue'),
+      meta: { title: '写一篇研究' },
+    },
+    {
       path: '/resources',
       name: 'resources',
       component: () => import('./pages/Resources.vue'),

@@ -34,14 +34,17 @@ const chapters = [
 const project = computed(() => {
   if (route.query.project === 'table') return 'table'
   if (route.query.project === 'microduck' || (!route.query.project && microduckDocs.some(d => d.file === route.query.doc))) return 'microduck'
+  if (route.query.project === 'html') return 'html'
   return 'onepage'
 })
 const isBom = computed(() => route.query.project === 'onepagebom' || route.query.doc === 'bom')
 const selectedDuck = computed(() => microduckDocs.find(d => d.file === route.query.doc) ?? microduckDocs[0]!)
 const isReport = computed(() => project.value === 'onepage' && !isBom.value)
 const section = computed(() => chapters.find(c => c.id === route.query.section)?.id ?? '')
-const currentTitle = computed(() => project.value === 'table' ? '表格预览' : project.value === 'microduck' ? selectedDuck.value.label : isBom.value ? '一页 BOM' : '壹页电纸书 · PCB 设计研究')
-const currentUrl = computed(() => project.value === 'table' ? '' : project.value === 'microduck' ? `${BASE}/microduck/${selectedDuck.value.file}` : isBom.value ? `${BASE}/onepage-bom/index.html` : `${BASE}/onepage-analysis/index.html`)
+const htmlPages = ref<{ id:string; title:string; fileName:string; group:string; html:string }[]>([])
+const selectedHtml = computed(() => htmlPages.value.find(p => p.id === route.query.html) ?? htmlPages.value[0])
+const currentTitle = computed(() => project.value === 'table' ? '表格预览' : project.value === 'html' ? (selectedHtml.value?.title || '上传网页') : project.value === 'microduck' ? selectedDuck.value.label : isBom.value ? '一页 BOM' : '壹页电纸书 · PCB 设计研究')
+const currentUrl = computed(() => project.value === 'table' || project.value === 'html' ? '' : project.value === 'microduck' ? `${BASE}/microduck/${selectedDuck.value.file}` : isBom.value ? `${BASE}/onepage-bom/index.html` : `${BASE}/onepage-analysis/index.html`)
 const standaloneUrl = computed(() => currentUrl.value + (isReport.value && section.value ? `#${section.value}` : ''))
 const search = ref('')
 const searchTerm = computed(() => search.value.trim().toLowerCase())
@@ -51,7 +54,7 @@ const showReport = computed(() => matches('壹页 一页 OnePage 电纸书 PCB �
 const showBom = computed(() => matches('壹页 一页 OnePage 电纸书 BOM 物料表'))
 const filteredChapters = computed(() => chapters.filter(c => matches(c.label, '壹页 一页 OnePage PCB 电纸书')))
 const duckGroups = computed(() => ['项目导览', '训练与实践', '延伸阅读'].map(label => ({ label, docs: microduckDocs.filter(d => d.group === label && matches(d.label, d.group, '微 Duck microduck 机器人')) })).filter(g => g.docs.length))
-const openGroups = ref({ onepage: true, microduck: project.value === 'microduck' })
+const openGroups = ref({ onepage: true, microduck: project.value === 'microduck', html: true })
 const collapsed = ref(false)
 const mobileOpen = ref(false)
 const isMobile = ref(window.innerWidth < 768)
@@ -62,7 +65,7 @@ const frameError = ref(false)
 const activeChapter = ref(section.value)
 let detachScroll: (() => void) | undefined
 function onResize() { isMobile.value = window.innerWidth < 768 }
-onMounted(() => window.addEventListener('resize', onResize))
+onMounted(() => { window.addEventListener('resize', onResize); loadHtmlPages() })
 onBeforeUnmount(() => { window.removeEventListener('resize', onResize); detachScroll?.() })
 function toggleSidebar() { if (isMobile.value) mobileOpen.value = !mobileOpen.value; else collapsed.value = !collapsed.value }
 function location(p: string, doc?: string, chapter?: string) {
@@ -110,6 +113,21 @@ const tableFileName = ref('')
 const tableRows = ref<string[][]>([])
 const tableError = ref('')
 const importing = ref(false)
+const htmlInput = ref<HTMLInputElement>(), htmlError = ref('')
+const htmlGroups = computed(() => Array.from(new Set(htmlPages.value.map(p => p.group))).map(group => ({ group, pages: htmlPages.value.filter(p => p.group === group) })))
+function loadHtmlPages() { try { htmlPages.value = JSON.parse(localStorage.getItem('lianmian.html-pages') || '[]') } catch { htmlPages.value = [] } }
+function htmlLocation(id: string) { return { path: '/docs', query: { project: 'html', html: id } } }
+async function removeHtmlPage(page: { id: string; title: string }) {
+  if (!window.confirm(`确定删除“${page.title}”吗？删除后无法恢复。`)) return
+  htmlPages.value = htmlPages.value.filter(item => item.id !== page.id)
+  localStorage.setItem('lianmian.html-pages', JSON.stringify(htmlPages.value))
+  if (route.query.html === page.id) await router.push('/docs')
+}
+async function importHtml(event: Event) {
+  const files = Array.from((event.target as HTMLInputElement).files || [])
+  if (!files.length) return
+  try { for (const file of files) { if (!/\.html?$/i.test(file.name)) throw new Error('请选择 HTML 文件'); const html = await file.text(); const doc = new DOMParser().parseFromString(html, 'text/html'); const title = doc.querySelector('title')?.textContent?.trim() || file.name; const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || ''; const group = path.includes('/') ? path.split('/')[0] : '上传网页'; htmlPages.value.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, title, fileName: file.name, group, html }) }; localStorage.setItem('lianmian.html-pages', JSON.stringify(htmlPages.value)); await router.push(htmlLocation(htmlPages.value.at(-1)!.id)); selected() } catch (e) { htmlError.value = e instanceof Error ? e.message : 'HTML 读取失败' } finally { (event.target as HTMLInputElement).value = '' }
+}
 function parseDelimited(text: string, delimiter: string) {
   const rows: string[][] = []
   let row: string[] = [], cell = '', quoted = false
@@ -177,13 +195,21 @@ async function importTable(event: Event) {
             <button class="group-toggle" :aria-expanded="!!searchTerm || openGroups.microduck" aria-controls="microduck-docs" @click="openGroups.microduck = !openGroups.microduck"><BookOpen :size="17" /><span>微 Duck</span><small>{{ microduckDocs.length }}</small><ChevronDown v-if="searchTerm || openGroups.microduck" :size="14" /><ChevronRight v-else :size="14" /></button>
             <div v-show="searchTerm || openGroups.microduck" id="microduck-docs" class="group-content"><div v-for="group in duckGroups" :key="group.label"><p class="subgroup-title">{{ group.label }}</p><RouterLink v-for="doc in group.docs" :key="doc.file" :to="location('microduck', doc.file)" class="doc-link duck-link" :class="{ selected: project === 'microduck' && selectedDuck.file === doc.file }" :aria-current="project === 'microduck' && selectedDuck.file === doc.file ? 'page' : undefined" @click="selected"><FileText :size="14" /><span>{{ doc.label }}</span></RouterLink></div></div>
           </section>
+          <section v-if="htmlGroups.length" class="nav-group">
+            <button class="group-toggle" :aria-expanded="true"><FileText :size="17" /><span>上传网页</span><small>{{ htmlPages.length }}</small></button>
+            <div class="group-content"><div v-for="group in htmlGroups" :key="group.group"><p class="subgroup-title">{{ group.group }}</p><div v-for="page in group.pages" :key="page.id" class="html-doc-row"><RouterLink :to="htmlLocation(page.id)" class="doc-link" :class="{ selected: project === 'html' && selectedHtml?.id === page.id }" @click="selected"><FileText :size="14" /><span>{{ page.title }}<small>{{ page.fileName }}</small></span></RouterLink><button type="button" class="delete-doc" :aria-label="`删除${page.title}`" title="删除资料" @click="removeHtmlPage(page)">×</button></div></div></div>
+          </section>
           <details v-if="isReport && filteredChapters.length" class="chapter-list" open><summary><List :size="13" /> PCB 研究 · 本文目录 <ChevronDown :size="13" /></summary><RouterLink v-for="(chapter) in filteredChapters" :key="chapter.id" :to="location('onepage', 'analysis', chapter.id)" class="chapter-link" :class="{ current: activeChapter === chapter.id }" :aria-current="activeChapter === chapter.id ? 'location' : undefined" @click="selectChapter(chapter.id)"><span>{{ String(chapters.indexOf(chapter) + 1).padStart(2, '0') }}</span>{{ chapter.label }}</RouterLink></details>
           <p v-if="!showOnepage && !duckGroups.length" class="search-empty" role="status">没有找到“{{ search }}”<br><button @click="search = ''">清空搜索，查看全部资料</button></p>
         </nav>
-        <div class="sidebar-tools"><p class="subgroup-title">阅读工具</p><RouterLink :to="location('table')" class="doc-link" :class="{ selected: project === 'table' }" :aria-current="project === 'table' ? 'page' : undefined" @click="selected"><Upload :size="16" /><span>表格预览<small>{{ tableFileName || '导入 CSV / TSV' }}</small></span></RouterLink><p class="local-note">导入的表格仅在当前页面预览</p></div>
+        <div class="sidebar-tools"><p class="subgroup-title">阅读工具</p><button class="doc-link upload-link" type="button" @click="htmlInput?.click()"><Upload :size="16" /><span>上传 HTML 网页<small>{{ htmlError || '支持多选，按文件夹分组' }}</small></span></button><RouterLink :to="location('table')" class="doc-link" :class="{ selected: project === 'table' }" :aria-current="project === 'table' ? 'page' : undefined" @click="selected"><Upload :size="16" /><span>表格预览<small>{{ tableFileName || '导入 CSV / TSV' }}</small></span></RouterLink><p class="local-note">网页保存在当前浏览器中</p></div>
       </aside>
       <div class="reader-content" :aria-busy="loading && project !== 'table'">
-        <template v-if="project !== 'table'">
+        <template v-if="project === 'html'">
+          <iframe v-if="selectedHtml" :srcdoc="selectedHtml.html" :title="selectedHtml.title" class="doc-frame" sandbox="allow-scripts allow-forms allow-modals" />
+          <p v-else class="reader-state">请从左侧选择一个上传的网页</p>
+        </template>
+        <template v-else-if="project !== 'table'">
           <p v-if="loading" class="reader-state" role="status">正在打开文档…</p>
           <div v-if="frameError" class="reader-state" role="alert">文档未能加载。<a :href="standaloneUrl" target="_blank" rel="noopener">尝试独立打开</a></div>
           <iframe :key="currentUrl" ref="frame" :src="currentUrl" :title="currentTitle" class="doc-frame" @load="frameLoaded" @error="loading = false; frameError = true" />
@@ -196,6 +222,7 @@ async function importTable(event: Event) {
         </div>
       </div>
     </div>
+    <input ref="htmlInput" type="file" accept=".html,.htm,text/html" multiple class="sr-only" aria-label="上传 HTML 网页" @change="importHtml" />
     <input ref="fileInput" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" class="sr-only" aria-label="选择表格文件" @change="importTable" />
   </div>
 </template>
@@ -232,6 +259,7 @@ async function importTable(event: Event) {
 .doc-link > span { min-width: 0; overflow-wrap: anywhere; }
 .doc-link small { display: block; color: var(--color-mute); font-size: 10px; margin-top: 3px; }
 .doc-link:hover { background: var(--hover-bg); }
+.html-doc-row { display:flex; align-items:center; gap:2px; }.html-doc-row .doc-link { flex:1; min-width:0; }.delete-doc { flex-shrink:0; width:25px; height:25px; border-radius:5px; color:var(--color-mute); font-size:17px; line-height:1; cursor:pointer; opacity:0; transition:opacity .15s, background .15s, color .15s; }.html-doc-row:hover .delete-doc, .delete-doc:focus-visible { opacity:1; }.delete-doc:hover { color:var(--color-warn); background:var(--hover-bg); }
 .doc-link.selected { background: var(--color-accent-soft); color: var(--color-accent); font-weight: 600; }
 .doc-link.selected::before { content: ''; position: absolute; top: 12px; bottom: 12px; left: 0; width: 3px; background: var(--color-accent); border-radius: 4px; }
 .chapter-list { border-left: 1px solid var(--color-line); margin: 10px 8px 14px 18px; padding-left: 10px; }

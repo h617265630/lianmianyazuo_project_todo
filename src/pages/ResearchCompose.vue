@@ -26,7 +26,10 @@ function resizeTitle() {
   el.style.height = 'auto'
   el.style.height = `${el.scrollHeight}px`
 }
-onMounted(() => nextTick(resizeTitle))
+onMounted(async () => {
+  nextTick(resizeTitle)
+  await projects.load()
+})
 
 function toggleProject(id: string) {
   projectIds.value = projectIds.value.includes(id) ? projectIds.value.filter(x => x !== id) : [...projectIds.value, id]
@@ -62,7 +65,7 @@ async function save() {
       <aside class="editor-meta">
         <p class="eyebrow">DOCUMENT SETTINGS</p>
         <label>研究阶段<select v-model="stage" class="input-line"><option v-for="(label, key) in stageLabels" :key="key" :value="key">{{ label }}</option></select></label>
-        <label>关联项目<div class="meta-chips"><button v-for="project in projects.projects" :key="project.id" class="chip" :class="{ 'is-active': projectIds.includes(project.id) }" type="button" @click="toggleProject(project.id)">{{ project.name }}</button><span v-if="!projects.projects.length" class="meta-muted">暂无项目</span></div></label>
+        <label>关联项目 <span v-if="projectIds.length" class="selection-count">已选 {{ projectIds.length }}</span><div class="meta-chips"><button v-for="project in projects.activeProjects" :key="project.id" class="chip" :class="{ 'is-active': projectIds.includes(project.id) }" type="button" @click="toggleProject(project.id)">{{ project.name }}</button><span v-if="projects.isLoading" class="meta-muted">加载项目中…</span><span v-else-if="!projects.activeProjects.length" class="meta-muted">暂无可关联项目</span></div></label>
         <label>标签<input v-model="tags" class="input-line" placeholder="ESP32, 低功耗" /><span class="meta-hint">用逗号分隔</span></label>
         <div class="editor-note"><strong>写作提示</strong><p>先写事实，再写你的判断。正文支持长文，保存后会回到研究库。</p></div>
       </aside>
@@ -83,6 +86,6 @@ async function save() {
 .markdown-editor :deep(.md-editor-content) { height:calc(100% - 48px); min-height:0; }
 .markdown-editor :deep(.md-editor-input-wrapper),.markdown-editor :deep(.md-editor-preview-wrapper) { padding:22px 24px; }
 .markdown-editor :deep(.md-editor-toolbar) { border-bottom-color:var(--color-line); background:var(--color-line-soft); }
-.editor-meta { border-left:1px solid var(--color-line); padding-left:24px; }.editor-meta label { display:block; margin-top:28px; color:var(--color-ink-soft); font-size:12px; }.editor-meta select,.editor-meta input { margin-top:8px; }.meta-chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }.meta-muted,.meta-hint { display:block; color:var(--color-mute); font-size:11px; margin-top:7px; }.editor-note { margin-top:45px; padding-top:15px; border-top:1px solid var(--color-line); color:var(--color-mute); font-size:11px; line-height:1.7; }.editor-note strong { color:var(--color-ink-soft); font-size:12px; }
+.editor-meta { border-left:1px solid var(--color-line); padding-left:24px; }.editor-meta label { display:block; margin-top:28px; color:var(--color-ink-soft); font-size:12px; }.selection-count { float:right; color:var(--color-accent); font-size:11px; }.editor-meta select,.editor-meta input { margin-top:8px; }.meta-chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }.meta-muted,.meta-hint { display:block; color:var(--color-mute); font-size:11px; margin-top:7px; }.editor-note { margin-top:45px; padding-top:15px; border-top:1px solid var(--color-line); color:var(--color-mute); font-size:11px; line-height:1.7; }.editor-note strong { color:var(--color-ink-soft); font-size:12px; }
 @media (max-width: 800px) { .editor-top { align-items:flex-start; }.editor-actions { gap:10px; }.editor-error { display:none; }.editor-layout { display:block; padding:40px 0 70px; }.editor-meta { border-left:0; border-top:1px solid var(--color-line); margin-top:45px; padding:25px 0 0; }.doc-body { min-height:420px; }.doc-title { font-size:32px; min-height:84px; }.markdown-editor { height:760px; }.markdown-editor :deep(.md-editor-input-wrapper),.markdown-editor :deep(.md-editor-preview-wrapper) { padding:16px; } }
 </style>
